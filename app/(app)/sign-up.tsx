@@ -6,13 +6,17 @@ import * as z from "zod";
 import { SafeAreaView } from "@/components/safe-area-view";
 import { Button } from "@/components/ui/button";
 import { Form, FormField, FormInput } from "@/components/ui/form";
+import { SuccessPopup } from "@/components/ui/success-popup";
 import { Text } from "@/components/ui/text";
 import { H1 } from "@/components/ui/typography";
 import { useSupabase } from "@/context/supabase-provider";
+import { useState } from "react";
 
 const formSchema = z
 	.object({
 		email: z.string().email("Please enter a valid email address."),
+		username: z.string().min(2, "Please enter at least 2 characters.").max(30, "Please enter fewer than 30 characters."),
+		full_name: z.string().min(2, "Please enter at least 2 characters.").max(100, "Please enter fewer than 100 characters."),
 		password: z
 			.string()
 			.min(8, "Please enter at least 8 characters.")
@@ -39,11 +43,14 @@ const formSchema = z
 
 export default function SignUp() {
 	const { signUp } = useSupabase();
+	const [showSuccess, setShowSuccess] = useState(false);
 
 	const form = useForm<z.infer<typeof formSchema>>({
 		resolver: zodResolver(formSchema),
 		defaultValues: {
 			email: "",
+			username: "",
+			full_name: "",
 			password: "",
 			confirmPassword: "",
 		},
@@ -51,11 +58,19 @@ export default function SignUp() {
 
 	async function onSubmit(data: z.infer<typeof formSchema>) {
 		try {
-			await signUp(data.email, data.password);
+			console.log("Attempting to sign up with email:", data.email);
+			const result = await signUp(data.email, data.password, {
+				username: data.username,
+				full_name: data.full_name,
+			});
+			console.log("Sign up result:", result);
 
 			form.reset();
+			setShowSuccess(true);
 		} catch (error: Error | any) {
-			console.log(error.message);
+			console.log("Sign up error:", error);
+			console.log("Error message:", error.message);
+			console.log("Error details:", error.details);
 		}
 	}
 
@@ -77,6 +92,32 @@ export default function SignUp() {
 									autoComplete="email"
 									autoCorrect={false}
 									keyboardType="email-address"
+									{...field}
+								/>
+							)}
+						/>
+						<FormField
+							control={form.control}
+							name="username"
+							render={({ field }) => (
+								<FormInput
+									label="Nickname"
+									placeholder="Enter your preferred name"
+									autoCapitalize="none"
+									autoCorrect={false}
+									{...field}
+								/>
+							)}
+						/>
+						<FormField
+							control={form.control}
+							name="full_name"
+							render={({ field }) => (
+								<FormInput
+									label="Full Name"
+									placeholder="Enter your full name"
+									autoCapitalize="words"
+									autoCorrect={false}
 									{...field}
 								/>
 							)}
@@ -125,6 +166,14 @@ export default function SignUp() {
 					<Text>Sign Up</Text>
 				)}
 			</Button>
+
+			{showSuccess && (
+				<SuccessPopup
+					message="Account created successfully!"
+					submessage="Please check your email to verify your account."
+					onClose={() => setShowSuccess(false)}
+				/>
+			)}
 		</SafeAreaView>
 	);
 }

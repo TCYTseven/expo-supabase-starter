@@ -1,30 +1,23 @@
-import * as React from "react";
-import { Text as RNText } from "react-native";
-
-import * as Slot from "../primitives/slot";
-import { SlottableTextProps, TextRef } from "../primitives/types";
-
+import { Text as RNText, TextProps as RNTextProps } from "react-native";
 import { cn } from "@/lib/utils";
+import { theme } from "@/lib/theme";
 
-const TextClassContext = React.createContext<string | undefined>(undefined);
+export interface TextProps extends RNTextProps {
+	variant?: "default" | "muted" | "primary";
+}
 
-const Text = React.forwardRef<TextRef, SlottableTextProps>(
-	({ className, asChild = false, ...props }, ref) => {
-		const textClass = React.useContext(TextClassContext);
-		const Component = asChild ? Slot.Text : RNText;
-		return (
-			<Component
-				className={cn(
-					"text-base text-foreground web:select-text",
-					textClass,
-					className,
-				)}
-				ref={ref}
-				{...props}
-			/>
-		);
-	},
-);
-Text.displayName = "Text";
+export function Text({ className, variant = "default", ...props }: TextProps) {
+	const variantStyles = {
+		default: { color: theme.colors.text.DEFAULT },
+		muted: { color: theme.colors.text.muted },
+		primary: { color: theme.colors.text.primary },
+	};
 
-export { Text, TextClassContext };
+	return (
+		<RNText
+			className={cn("text-base", className)}
+			style={variantStyles[variant]}
+			{...props}
+		/>
+	);
+}

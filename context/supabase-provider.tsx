@@ -10,8 +10,8 @@ type SupabaseContextProps = {
 	user: User | null;
 	session: Session | null;
 	initialized?: boolean;
-	signUp: (email: string, password: string) => Promise<void>;
-	signInWithPassword: (email: string, password: string) => Promise<void>;
+	signUp: (email: string, password: string, metadata?: { username?: string; full_name?: string }) => Promise<{ data: any; error: any }>;
+	signInWithPassword: (email: string, password: string) => Promise<{ data: any; error: any }>;
 	signOut: () => Promise<void>;
 	onLayoutRootView: () => Promise<void>;
 };
@@ -24,8 +24,8 @@ export const SupabaseContext = createContext<SupabaseContextProps>({
 	user: null,
 	session: null,
 	initialized: false,
-	signUp: async () => { },
-	signInWithPassword: async () => { },
+	signUp: async () => ({ data: null, error: null }),
+	signInWithPassword: async () => ({ data: null, error: null }),
 	signOut: async () => { },
 	onLayoutRootView: async () => { },
 });
@@ -40,24 +40,31 @@ export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
 	const [initialized, setInitialized] = useState<boolean>(false);
 	const [appIsReady, setAppIsReady] = useState<boolean>(false);
 
-	const signUp = async (email: string, password: string) => {
-		const { error } = await supabase.auth.signUp({
+	const signUp = async (email: string, password: string, metadata?: { username?: string; full_name?: string }) => {
+		const { data, error } = await supabase.auth.signUp({
 			email,
 			password,
+			options: {
+				data: metadata,
+			},
 		});
+		console.log("Supabase sign up response:", { data, error });
 		if (error) {
 			throw error;
 		}
+		return { data, error };
 	};
 
 	const signInWithPassword = async (email: string, password: string) => {
-		const { error } = await supabase.auth.signInWithPassword({
+		const { data, error } = await supabase.auth.signInWithPassword({
 			email,
 			password,
 		});
+		console.log("Supabase sign in response:", { data, error });
 		if (error) {
 			throw error;
 		}
+		return { data, error };
 	};
 
 	const signOut = async () => {
