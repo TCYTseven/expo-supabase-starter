@@ -7,6 +7,7 @@ import { useState } from "react";
 import { theme } from "@/lib/theme";
 import { useSupabase } from "@/context/supabase-provider";
 import { useUserProfile } from "@/lib/hooks/useUserProfile";
+import { getAdvisorPrompt } from "@/lib/advisorService";
 
 // Advisor display names mapping
 const advisorNames = {
@@ -59,6 +60,16 @@ export default function Settings() {
 		return advisorNames[profile.advisor as keyof typeof advisorNames] || profile.advisor;
 	};
 
+	// Check if custom advisor data exists and get the prompt
+	const hasCustomAdvisor = profile?.custom_advisors && 
+		profile.custom_advisors !== "Not Set";
+	
+	// Get the prompt if custom advisor exists
+	let advisorPrompt = null;
+	if (hasCustomAdvisor) {
+		advisorPrompt = getAdvisorPrompt(profile?.custom_advisors);
+	}
+
 	return (
 		<ScrollView className="flex-1 bg-background">
 			<View className="p-6 space-y-8">
@@ -84,6 +95,15 @@ export default function Settings() {
 					</View>
 					<Ionicons name="chevron-forward" size={20} color={theme.colors.text.muted} />
 				</TouchableOpacity>
+
+				{/* Display custom advisor prompt if available */}
+				{hasCustomAdvisor && advisorPrompt && (
+					<View className="mt-3 bg-primary/10 p-4 rounded-lg">
+						<Text className="font-medium mb-2">Your Custom Advisor:</Text>
+						<Text className="italic">{advisorPrompt}</Text>
+						<Muted className="text-xs mt-2">This prompt will be used when you ask for advice</Muted>
+					</View>
+				)}
 
 				{renderDivider()}
 

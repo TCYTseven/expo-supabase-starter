@@ -4,11 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { H1, H2, Muted } from "@/components/ui/typography";
 import { Card } from "@/components/ui/card";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { theme } from "@/lib/theme";
 import { PanGestureHandler, State, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useUserProfile } from "@/lib/hooks/useUserProfile";
+import { useSupabase } from "@/context/supabase-provider";
+import { createCustomAdvisor, getAdvisorPrompt } from "@/lib/advisorService";
 
 type AdvisorTrait = {
   label: string;
@@ -26,6 +28,10 @@ export default function BuildAdvisor() {
   const [currentStep, setCurrentStep] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
   const { updateCustomAdvisors } = useUserProfile();
+  const { user } = useSupabase();
+  
+  // State to store the generated prompt preview
+  const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
   
   // Values for each step
   const [communicationTraits, setCommunicationTraits] = useState<AdvisorTrait[]>([
@@ -155,13 +161,29 @@ export default function BuildAdvisor() {
         tone: freeForm.tone
       };
       
-      // Save to user profile
-      updateCustomAdvisors(JSON.stringify(advisorData))
-        .then(() => {
-          router.replace("/(app)/(protected)/settings");
+      // Use the advisor service directly to generate and store the advisor
+      createCustomAdvisor(advisorData, user?.id || '')
+        .then(result => {
+          if (result.success) {
+            console.log('Advisor prompt generated:', result.advisorPrompt);
+            // Just navigate back since the service has already updated the profile
+            router.replace("/(app)/(protected)/settings");
+          } else {
+            console.error('Error creating advisor:', result.error);
+            // Fall back to the old method if service fails
+            updateCustomAdvisors(JSON.stringify(advisorData))
+              .then(() => {
+                router.replace("/(app)/(protected)/settings");
+              });
+          }
         })
         .catch(err => {
-          console.error("Error saving custom advisor:", err);
+          console.error("Error calling advisor service:", err);
+          // Fall back to the old method if service fails
+          updateCustomAdvisors(JSON.stringify(advisorData))
+            .then(() => {
+              router.replace("/(app)/(protected)/settings");
+            });
         });
     }
   };
@@ -372,6 +394,15 @@ export default function BuildAdvisor() {
               <Muted className="text-center">This advisor will be tailored to your preferences</Muted>
             </View>
             
+            {/* Generated prompt preview */}
+            {generatedPrompt && (
+              <View className="bg-primary/10 rounded-lg p-4 my-4">
+                <Text className="font-medium mb-2">AI-Generated Prompt:</Text>
+                <Text className="italic">{generatedPrompt}</Text>
+                <Muted className="text-xs mt-2">This prompt will be used when you ask for advice</Muted>
+              </View>
+            )}
+            
             <View className="space-y-2 mt-4">
               <Text className="font-medium">Communication Style</Text>
               <View className="flex-row flex-wrap">
@@ -424,6 +455,34 @@ export default function BuildAdvisor() {
         );
     }
   };
+
+  // Generate preview prompt when reaching the final step
+  useEffect(() => {
+    if (currentStep === steps.length - 1) {
+      const advisorData = {
+        name: freeForm.advisorName,
+        communicationTraits: communicationTraits.filter(t => t.selected).map(t => t.value),
+        personalityTraits: personalityTraits.filter(t => t.selected).map(t => t.value),
+        sliders,
+        background: freeForm.background,
+        expertise: freeForm.expertise,
+        tone: freeForm.tone
+      };
+      
+      // Try to generate a preview prompt
+      createCustomAdvisor(advisorData, "preview")
+        .then(result => {
+          if (result.success && result.advisorPrompt) {
+            setGeneratedPrompt(result.advisorPrompt);
+          }
+        })
+        .catch(err => {
+          console.error("Error generating preview prompt:", err);
+          // Use a fallback prompt if generation fails
+          setGeneratedPrompt(`I am ${advisorData.name}, your personal advisor. I will provide advice based on your needs.`);
+        });
+    }
+  }, [currentStep]);
 
   return (
     <View className="flex-1 bg-background">

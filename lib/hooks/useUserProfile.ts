@@ -131,10 +131,23 @@ export function useUserProfile() {
     try {
       if (!user) return null;
 
+      // Make sure customAdvisors is a valid JSON string
+      let validCustomAdvisors = customAdvisors;
+      try {
+        // Test if it's valid JSON
+        JSON.parse(customAdvisors);
+      } catch (e) {
+        // If not valid JSON, wrap it as a prompt
+        validCustomAdvisors = JSON.stringify({
+          prompt: customAdvisors,
+          raw: null
+        });
+      }
+
       const { data, error } = await supabase
         .from('user_profiles')
         .update({ 
-          custom_advisors: customAdvisors,
+          custom_advisors: validCustomAdvisors,
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id)
