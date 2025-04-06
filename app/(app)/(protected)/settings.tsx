@@ -1,18 +1,37 @@
-import { View, ScrollView, Switch, TouchableOpacity } from "react-native";
+import { View, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
 import { router } from "expo-router";
-import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
-import { H1, H2, Muted } from "@/components/ui/typography";
+import { H1, Muted } from "@/components/ui/typography";
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { theme } from "@/lib/theme";
+import { useSupabase } from "@/context/supabase-provider";
+import { useUserProfile } from "@/lib/hooks/useUserProfile";
+
+// Advisor display names mapping
+const advisorNames = {
+	"rocky": "Rocky Balboa",
+	"iroh": "Uncle Iroh",
+	"goggins": "David Goggins",
+	"assistant": "Assistant",
+};
+
+// Personality type descriptions
+const personalityDescriptions = {
+	"INTJ": "The Architect",
+	"INTP": "The Logician",
+	"ENTJ": "The Commander",
+	"ENTP": "The Debater",
+	"ISFJ": "The Defender",
+	"ISTJ": "The Inspector",
+	"ENFJ": "The Protagonist",
+	"ENFP": "The Campaigner",
+	// Add more as needed
+};
 
 export default function Settings() {
-	const [notifications, setNotifications] = useState({
-		newAdvice: true,
-		reminders: true,
-		updates: false,
-	});
+	const { signOut } = useSupabase();
+	const { profile, loading, error } = useUserProfile();
 
 	const renderDivider = () => (
 		<View className="h-px bg-border/50 my-4" />
@@ -21,6 +40,24 @@ export default function Settings() {
 	const renderSectionHeader = (title: string) => (
 		<Text className="font-bold text-lg mb-4">{title}</Text>
 	);
+
+	// Get personality description or fallback
+	const getPersonalityDescription = () => {
+		if (!profile || profile.personality_type === "NONE") {
+			return "Not Set";
+		}
+
+		return `${profile.personality_type} - ${personalityDescriptions[profile.personality_type as keyof typeof personalityDescriptions] || ""}`;
+	};
+
+	// Get advisor name or fallback
+	const getAdvisorName = () => {
+		if (!profile || profile.advisor === "Not Set") {
+			return "Assistant";
+		}
+
+		return advisorNames[profile.advisor as keyof typeof advisorNames] || profile.advisor;
+	};
 
 	return (
 		<ScrollView className="flex-1 bg-background">
@@ -62,7 +99,11 @@ export default function Settings() {
 							<Text className="font-medium">Personality Profile</Text>
 							<View className="flex-row">
 								<Muted>Current Type: </Muted>
-								<Text>INTJ - The Architect</Text>
+								{loading ? (
+									<ActivityIndicator size="small" />
+								) : (
+									<Text>{getPersonalityDescription()}</Text>
+								)}
 							</View>
 						</View>
 					</View>
@@ -83,62 +124,16 @@ export default function Settings() {
 							<Text className="font-medium">Change Advisor</Text>
 							<View className="flex-row">
 								<Muted>Current Advisor: </Muted>
-								<Text>Rocky Balboa</Text>
+								{loading ? (
+									<ActivityIndicator size="small" />
+								) : (
+									<Text>{getAdvisorName()}</Text>
+								)}
 							</View>
 						</View>
 					</View>
 					<Ionicons name="chevron-forward" size={20} color={theme.colors.text.muted} />
 				</TouchableOpacity>
-
-				{/* Notifications Section */}
-				<View className="mt-6">
-					{renderSectionHeader("Notifications")}
-
-					<View className="space-y-5">
-						<View className="flex-row justify-between items-center">
-							<View className="flex-1 pr-4">
-								<Text className="font-medium mb-1">New Advice</Text>
-								<Muted>Get notified when new advice is available</Muted>
-							</View>
-							<Switch
-								value={notifications.newAdvice}
-								onValueChange={(value) =>
-									setNotifications({ ...notifications, newAdvice: value })
-								}
-							/>
-						</View>
-
-						{renderDivider()}
-
-						<View className="flex-row justify-between items-center">
-							<View className="flex-1 pr-4">
-								<Text className="font-medium mb-1">Reminders</Text>
-								<Muted>Get reminded to complete pending decisions</Muted>
-							</View>
-							<Switch
-								value={notifications.reminders}
-								onValueChange={(value) =>
-									setNotifications({ ...notifications, reminders: value })
-								}
-							/>
-						</View>
-
-						{renderDivider()}
-
-						<View className="flex-row justify-between items-center">
-							<View className="flex-1 pr-4">
-								<Text className="font-medium mb-1">Updates</Text>
-								<Muted>Get notified about app updates and improvements</Muted>
-							</View>
-							<Switch
-								value={notifications.updates}
-								onValueChange={(value) =>
-									setNotifications({ ...notifications, updates: value })
-								}
-							/>
-						</View>
-					</View>
-				</View>
 
 				{/* Account Section */}
 				<View className="mt-6">
@@ -182,51 +177,19 @@ export default function Settings() {
 
 					<TouchableOpacity 
 						className="flex-row items-center py-3"
-						onPress={() => router.push("/(app)/sign-in")}
+						onPress={async () => {
+							try {
+								await signOut();
+								router.replace("/(app)/welcome");
+							} catch (error) {
+								console.error("Error signing out:", error);
+							}
+						}}
 					>
 						<View className="w-10 h-10 bg-red-500/10 rounded-full items-center justify-center mr-4">
 							<Ionicons name="log-out" size={20} color="red" />
 						</View>
 						<Text className="font-medium text-red-500">Sign Out</Text>
-					</TouchableOpacity>
-				</View>
-
-				{/* About Section */}
-				<View className="mt-6 mb-12">
-					{renderSectionHeader("About")}
-
-					<TouchableOpacity 
-						className="flex-row items-center justify-between py-3"
-						onPress={() => {/* Handle about */}}
-					>
-						<View className="flex-row items-center">
-							<View className="w-10 h-10 bg-primary/10 rounded-full items-center justify-center mr-4">
-								<Ionicons name="information-circle" size={20} color={theme.colors.primary.DEFAULT} />
-							</View>
-							<View>
-								<Text className="font-medium">About Smart8Ball</Text>
-								<Muted>Version 1.0.0</Muted>
-							</View>
-						</View>
-						<Ionicons name="chevron-forward" size={20} color={theme.colors.text.muted} />
-					</TouchableOpacity>
-
-					{renderDivider()}
-
-					<TouchableOpacity 
-						className="flex-row items-center justify-between py-3"
-						onPress={() => {/* Handle help */}}
-					>
-						<View className="flex-row items-center">
-							<View className="w-10 h-10 bg-primary/10 rounded-full items-center justify-center mr-4">
-								<Ionicons name="help-circle" size={20} color={theme.colors.primary.DEFAULT} />
-							</View>
-							<View>
-								<Text className="font-medium">Help & Support</Text>
-								<Muted>Get assistance with app features</Muted>
-							</View>
-						</View>
-						<Ionicons name="chevron-forward" size={20} color={theme.colors.text.muted} />
 					</TouchableOpacity>
 				</View>
 			</View>

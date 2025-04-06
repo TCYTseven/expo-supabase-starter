@@ -1,93 +1,102 @@
-import { View, ScrollView, TouchableOpacity } from "react-native";
+import { View, ScrollView, TouchableOpacity, StyleSheet, Image } from "react-native";
 import { router } from "expo-router";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
-import { H1, H2, Muted } from "@/components/ui/typography";
+import { H1, Muted } from "@/components/ui/typography";
 import { theme } from "@/lib/theme";
 
 export default function Welcome() {
 	return (
-		<ScrollView className="flex-1" style={{ backgroundColor: theme.colors.background.DEFAULT }}>
-			<View className="flex-1 items-center justify-center p-6 gap-y-8" style={{ paddingTop: theme.spacing.safeTop }}>
-				<View className="items-center">
-					<Text className="text-6xl mb-4">🎱</Text>
-					<H1 className="text-center text-4xl font-bold" style={{ color: theme.colors.text.DEFAULT }}>
-						Smart8Ball
-					</H1>
-					<Muted className="text-center text-lg mt-2" style={{ color: theme.colors.text.muted }}>
+		<ScrollView contentContainerStyle={styles.container}>
+			<View style={styles.content}>
+				<View style={styles.logoContainer}>
+					<Text style={styles.emoji}>🎱</Text>
+					<H1 style={styles.title}>Smart8Ball</H1>
+					<Muted style={styles.subtitle}>
 						Your AI-powered decision-making companion
 					</Muted>
 				</View>
 
-				<TouchableOpacity
-					className="w-full bg-primary rounded-2xl p-6 items-center"
-					onPress={() => router.push("/(app)/(protected)/new-decision")}
-				>
-					<Text className="text-2xl mb-2">🎯</Text>
-					<Text className="text-xl font-bold text-white">Make a Decision</Text>
-					<Muted className="text-center mt-2" style={{ color: 'rgba(255,255,255,0.8)' }}>
-						Get personalized advice for your choices
-					</Muted>
-				</TouchableOpacity>
-
-				<View className="w-full space-y-4">
-					<View className="bg-background-card p-4 rounded-xl">
-						<H2 className="text-xl font-semibold mb-2" style={{ color: theme.colors.text.DEFAULT }}>
-							Dynamic Flowcharts
-						</H2>
-						<Muted style={{ color: theme.colors.text.muted }}>
-							Visualize your decision-making process with interactive flowcharts
-						</Muted>
-					</View>
-
-					<View className="bg-background-card p-4 rounded-xl">
-						<H2 className="text-xl font-semibold mb-2" style={{ color: theme.colors.text.DEFAULT }}>
-							Personality-Driven Advice
-						</H2>
-						<Muted style={{ color: theme.colors.text.muted }}>
-							Get guidance from unique personalities like Rocky Balboa or Uncle Iroh
-						</Muted>
-					</View>
-
-					<View className="bg-background-card p-4 rounded-xl">
-						<H2 className="text-xl font-semibold mb-2" style={{ color: theme.colors.text.DEFAULT }}>
-							Smart Context Analysis
-						</H2>
-						<Muted style={{ color: theme.colors.text.muted }}>
-							Upload documents for AI-enhanced insights
-						</Muted>
-					</View>
-
-					<View className="bg-background-card p-4 rounded-xl">
-						<H2 className="text-xl font-semibold mb-2" style={{ color: theme.colors.text.DEFAULT }}>
-							Real-Time Feedback
-						</H2>
-						<Muted style={{ color: theme.colors.text.muted }}>
-							Shape your decision path with continuous feedback
-						</Muted>
-					</View>
-				</View>
-
-				<View className="w-full space-y-4">
-					<Button
-						className="w-full bg-primary"
-						size="lg"
-						onPress={() => router.push("/(app)/sign-up")}
-					>
-						<Text className="text-lg text-white">Get Started</Text>
-					</Button>
-					<Button
-						className="w-full bg-background-card"
-						variant="outline"
-						size="lg"
+				<View style={styles.buttonContainer}>
+					<TouchableOpacity
+						style={[styles.button, styles.loginButton]}
 						onPress={() => router.push("/(app)/sign-in")}
 					>
-						<Text className="text-lg" style={{ color: theme.colors.text.DEFAULT }}>
-							I already have an account
-						</Text>
-					</Button>
+						<Text style={styles.loginButtonText}>LOG IN</Text>
+					</TouchableOpacity>
+					
+					<TouchableOpacity
+						style={[styles.button, styles.signupButton]}
+						onPress={() => router.push("/(app)/sign-up")}
+					>
+						<Text style={styles.signupButtonText}>SIGN UP</Text>
+					</TouchableOpacity>
 				</View>
 			</View>
 		</ScrollView>
 	);
 }
+
+const styles = StyleSheet.create({
+	container: {
+		flexGrow: 1,
+		backgroundColor: theme.colors.background.DEFAULT,
+	},
+	content: {
+		flex: 1,
+		padding: 24,
+		justifyContent: 'space-between',
+		paddingTop: theme.spacing.safeTop + 60,
+		paddingBottom: 40,
+	},
+	logoContainer: {
+		alignItems: 'center',
+		marginBottom: 60,
+	},
+	emoji: {
+		fontSize: 80,
+		marginBottom: 20,
+	},
+	title: {
+		fontSize: 42,
+		fontWeight: 'bold',
+		color: theme.colors.text.DEFAULT,
+		textAlign: 'center',
+	},
+	subtitle: {
+		fontSize: 18,
+		color: theme.colors.text.muted,
+		textAlign: 'center',
+		marginTop: 12,
+	},
+	buttonContainer: {
+		width: '100%',
+		gap: 16,
+		marginTop: 'auto',
+	},
+	button: {
+		width: '100%',
+		height: 56,
+		borderRadius: 28,
+		justifyContent: 'center',
+		alignItems: 'center',
+	},
+	loginButton: {
+		backgroundColor: theme.colors.primary.DEFAULT,
+	},
+	loginButtonText: {
+		color: '#FFFFFF',
+		fontSize: 16,
+		fontWeight: 'bold',
+	},
+	signupButton: {
+		backgroundColor: 'white',
+		borderWidth: 1,
+		borderColor: theme.colors.border,
+	},
+	signupButtonText: {
+		color: theme.colors.primary.DEFAULT,
+		fontSize: 16,
+		fontWeight: 'bold',
+	},
+});

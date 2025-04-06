@@ -52,7 +52,62 @@ export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
 		if (error) {
 			throw error;
 		}
+
+		// Create user profile manually after signup
+		if (data.user) {
+			try {
+				const { error: profileError } = await supabase
+					.from('user_profiles')
+					.insert([
+						{ 
+							id: data.user.id,
+							personality_type: "NONE",
+							advisor: "Assistant",
+							custom_advisors: "Not Set"
+						}
+					]);
+				
+				if (profileError) {
+					console.error("Error creating user profile:", profileError);
+				}
+			} catch (profileErr) {
+				console.error("Exception creating user profile:", profileErr);
+			}
+		}
+
 		return { data, error };
+	};
+
+	// Ensure user profile exists
+	const ensureUserProfile = async (userId: string) => {
+		try {
+			// Check if profile exists
+			const { data: existingProfile } = await supabase
+				.from('user_profiles')
+				.select('id')
+				.eq('id', userId)
+				.single();
+			
+			// If profile doesn't exist, create it
+			if (!existingProfile) {
+				const { error: profileError } = await supabase
+					.from('user_profiles')
+					.insert([
+						{ 
+							id: userId,
+							personality_type: "NONE",
+							advisor: "Assistant",
+							custom_advisors: "Not Set"
+						}
+					]);
+				
+				if (profileError) {
+					console.error("Error creating user profile:", profileError);
+				}
+			}
+		} catch (err) {
+			console.error("Error ensuring user profile:", err);
+		}
 	};
 
 	const signInWithPassword = async (email: string, password: string) => {
@@ -64,6 +119,12 @@ export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
 		if (error) {
 			throw error;
 		}
+
+		// Ensure user profile exists
+		if (data.user) {
+			await ensureUserProfile(data.user.id);
+		}
+		
 		return { data, error };
 	};
 
@@ -80,6 +141,12 @@ export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
 				const { data: { session } } = await supabase.auth.getSession();
 				setSession(session);
 				setUser(session ? session.user : null);
+				
+				// Ensure user profile exists if user is logged in
+				if (session?.user) {
+					await ensureUserProfile(session.user.id);
+				}
+				
 				setInitialized(true);
 
 				const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {

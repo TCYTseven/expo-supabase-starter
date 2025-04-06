@@ -1,12 +1,14 @@
-import { View, ScrollView, TouchableOpacity, TextInput, FlatList } from "react-native";
+import { View, ScrollView, TouchableOpacity, TextInput, FlatList, Animated } from "react-native";
 import { router } from "expo-router";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { H1, H2, Muted } from "@/components/ui/typography";
 import { Card } from "@/components/ui/card";
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { theme } from "@/lib/theme";
+import { PanGestureHandler, State, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useUserProfile } from "@/lib/hooks/useUserProfile";
 
 type AdvisorTrait = {
   label: string;
@@ -23,6 +25,7 @@ type Step = {
 export default function BuildAdvisor() {
   const [currentStep, setCurrentStep] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
+  const { updateCustomAdvisors } = useUserProfile();
   
   // Values for each step
   const [communicationTraits, setCommunicationTraits] = useState<AdvisorTrait[]>([
@@ -43,6 +46,12 @@ export default function BuildAdvisor() {
     { label: "Big-picture & Strategic", value: "strategic", selected: false },
   ]);
   
+  // Use animated values for sliders
+  const directnessAnim = useRef(new Animated.Value(5)).current;
+  const optimismAnim = useRef(new Animated.Value(5)).current;
+  const creativityAnim = useRef(new Animated.Value(5)).current;
+  const detailAnim = useRef(new Animated.Value(5)).current;
+  
   const [sliders, setSliders] = useState({
     directness: 5,
     optimism: 5,
@@ -51,9 +60,14 @@ export default function BuildAdvisor() {
   });
   
   const [freeForm, setFreeForm] = useState({
+    advisorName: "",
     background: "",
     expertise: "",
     tone: "",
+  });
+  
+  const [errors, setErrors] = useState({
+    advisorName: false
   });
   
   const steps: Step[] = [
@@ -74,7 +88,7 @@ export default function BuildAdvisor() {
     },
     {
       title: "Additional Details",
-      description: "Tell us more about your ideal advisor. These are optional.",
+      description: "Tell us more about your ideal advisor.",
       type: "freeform",
     },
     {
@@ -98,15 +112,57 @@ export default function BuildAdvisor() {
 
   const handleSliderChange = (name: keyof typeof sliders, value: number) => {
     setSliders(prev => ({ ...prev, [name]: value }));
+    
+    // Update animated value
+    switch (name) {
+      case 'directness':
+        directnessAnim.setValue(value);
+        break;
+      case 'optimism':
+        optimismAnim.setValue(value);
+        break;
+      case 'creativity':
+        creativityAnim.setValue(value);
+        break;
+      case 'detail':
+        detailAnim.setValue(value);
+        break;
+    }
   };
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
+      // Validate form if on Additional Details step
+      if (currentStep === 3) {
+        if (!freeForm.advisorName.trim()) {
+          setErrors({ ...errors, advisorName: true });
+          return;
+        }
+      }
+      
       setCurrentStep(currentStep + 1);
       scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     } else {
       // Save advisor settings and return to settings
-      router.replace("/(app)/(protected)/settings");
+      // Create a JSON representation of the advisor to save
+      const advisorData = {
+        name: freeForm.advisorName,
+        communicationTraits: communicationTraits.filter(t => t.selected).map(t => t.value),
+        personalityTraits: personalityTraits.filter(t => t.selected).map(t => t.value),
+        sliders,
+        background: freeForm.background,
+        expertise: freeForm.expertise,
+        tone: freeForm.tone
+      };
+      
+      // Save to user profile
+      updateCustomAdvisors(JSON.stringify(advisorData))
+        .then(() => {
+          router.replace("/(app)/(protected)/settings");
+        })
+        .catch(err => {
+          console.error("Error saving custom advisor:", err);
+        });
     }
   };
 
@@ -135,33 +191,87 @@ export default function BuildAdvisor() {
     </TouchableOpacity>
   );
 
-  // Render a custom slider component
-  const renderSlider = (label: string, name: keyof typeof sliders, min: string, max: string) => (
-    <View className="mb-6" key={name}>
-      <Text className="font-medium mb-2">{label}</Text>
-      <View className="flex-row items-center">
-        <Text className="w-24">{min}</Text>
-        <View className="flex-1 h-2 bg-gray-200 rounded-full">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((val) => (
-            <TouchableOpacity
-              key={val}
-              style={{
-                position: 'absolute',
-                left: `${(val - 1) * 12.5}%`,
-                width: 20,
-                height: 20,
-                borderRadius: 10,
-                backgroundColor: val <= sliders[name] ? theme.colors.primary.DEFAULT : '#ddd',
-                marginTop: -9,
-              }}
-              onPress={() => handleSliderChange(name, val)}
-            />
-          ))}
+  // Render a custom draggable slider component
+  const renderSlider = (label: string, name: keyof typeof sliders, min: string, max: string, animValue: Animated.Value) => {
+    const sliderWidth = 270; // width of the slider track
+    const thumbWidth = 24;
+    const trackPadding = thumbWidth / 2;
+    const sliderRange = sliderWidth - thumbWidth;
+    
+    const translateX = animValue.interpolate({
+      inputRange: [1, 9],
+      outputRange: [0, sliderRange],
+      extrapolate: 'clamp'
+    });
+    
+    const onGestureEvent = Animated.event(
+      [{ nativeEvent: { translationX: animValue } }],
+      { useNativeDriver: true }
+    );
+    
+    const onHandlerStateChange = (event: any) => {
+      if (event.nativeEvent.state === State.END) {
+        const { translationX } = event.nativeEvent;
+        let newValue = sliders[name] + Math.round(translationX / (sliderRange / 8));
+        newValue = Math.max(1, Math.min(9, newValue));
+        handleSliderChange(name, newValue);
+      }
+    };
+    
+    return (
+      <View className="mb-8" key={name}>
+        <Text className="font-medium mb-2">{label}</Text>
+        <View className="flex-row items-center justify-between mb-2">
+          <Text className="text-sm text-gray-500">{min}</Text>
+          <Text className="text-sm text-gray-500">{max}</Text>
         </View>
-        <Text className="w-24 text-right">{max}</Text>
+        
+        <GestureHandlerRootView style={{ alignItems: 'center' }}>
+          <View className="w-full items-center">
+            <View 
+              className="h-2 bg-gray-200 rounded-full"
+              style={{ width: sliderWidth }}
+            />
+            
+            <PanGestureHandler
+              onGestureEvent={onGestureEvent}
+              onHandlerStateChange={onHandlerStateChange}
+            >
+              <Animated.View
+                style={{
+                  position: 'absolute',
+                  width: thumbWidth,
+                  height: thumbWidth,
+                  borderRadius: thumbWidth / 2,
+                  backgroundColor: theme.colors.primary.DEFAULT,
+                  transform: [{ translateX }],
+                  top: -11,
+                }}
+              />
+            </PanGestureHandler>
+            
+            {/* Value indicators */}
+            <View className="flex-row justify-between w-full mt-4">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(val => (
+                <TouchableOpacity
+                  key={val}
+                  onPress={() => handleSliderChange(name, val)}
+                  style={{ width: sliderWidth / 9 }}
+                  className="items-center"
+                >
+                  <Text 
+                    className={val === sliders[name] ? "text-primary font-semibold" : "text-gray-400"}
+                  >
+                    {val}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </GestureHandlerRootView>
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderStepContent = () => {
     const step = steps[currentStep];
@@ -178,16 +288,37 @@ export default function BuildAdvisor() {
       case "sliders":
         return (
           <View className="space-y-2">
-            {renderSlider("Directness", "directness", "Gentle", "Direct")}
-            {renderSlider("Optimism", "optimism", "Realistic", "Optimistic")}
-            {renderSlider("Approach", "creativity", "Conventional", "Creative")}
-            {renderSlider("Focus", "detail", "Big Picture", "Detail-oriented")}
+            {renderSlider("Directness", "directness", "Gentle", "Direct", directnessAnim)}
+            {renderSlider("Optimism", "optimism", "Realistic", "Optimistic", optimismAnim)}
+            {renderSlider("Approach", "creativity", "Conventional", "Creative", creativityAnim)}
+            {renderSlider("Focus", "detail", "Big Picture", "Detail-oriented", detailAnim)}
           </View>
         );
         
       case "freeform":
         return (
           <View className="space-y-4">
+            <View className="space-y-2">
+              <View className="flex-row">
+                <Text className="font-medium">Name Your Advisor</Text>
+                <Text className="text-red-500"> *</Text>
+              </View>
+              <TextInput
+                className={`border rounded-lg p-3 ${errors.advisorName ? 'border-red-500' : 'border-border'}`}
+                placeholder="Give your advisor a name"
+                value={freeForm.advisorName}
+                onChangeText={(text) => {
+                  setFreeForm({...freeForm, advisorName: text});
+                  if (text.trim()) {
+                    setErrors({...errors, advisorName: false});
+                  }
+                }}
+              />
+              {errors.advisorName && (
+                <Text className="text-red-500 text-sm">Please name your advisor</Text>
+              )}
+            </View>
+            
             <View className="space-y-2">
               <Text className="font-medium">Background (optional)</Text>
               <TextInput
@@ -237,7 +368,7 @@ export default function BuildAdvisor() {
               <View className="w-20 h-20 rounded-full bg-primary/20 items-center justify-center mb-4">
                 <Ionicons name="person" size={40} color={theme.colors.primary.DEFAULT} />
               </View>
-              <H2 className="text-xl text-center mb-2">Your Custom Advisor</H2>
+              <H2 className="text-xl text-center mb-2">{freeForm.advisorName}</H2>
               <Muted className="text-center">This advisor will be tailored to your preferences</Muted>
             </View>
             

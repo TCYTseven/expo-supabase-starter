@@ -1,10 +1,11 @@
-import { View, ScrollView } from "react-native";
+import { View, ScrollView, ActivityIndicator } from "react-native";
 import { router } from "expo-router";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { H1, H2, Muted } from "@/components/ui/typography";
 import { Card } from "@/components/ui/card";
 import { useState } from "react";
+import { useUserProfile } from "@/lib/hooks/useUserProfile";
 
 const questions = [
   {
@@ -41,21 +42,64 @@ const questions = [
   },
 ];
 
+// Mapping of quiz results to personality types
+const personalityTypes = {
+  "ISTJ": "The Inspector",
+  "ISFJ": "The Protector",
+  "INFJ": "The Counselor",
+  "INTJ": "The Architect",
+  "ISTP": "The Craftsman",
+  "ISFP": "The Composer",
+  "INFP": "The Healer",
+  "INTP": "The Thinker",
+  "ESTP": "The Dynamo",
+  "ESFP": "The Performer",
+  "ENFP": "The Champion",
+  "ENTP": "The Visionary",
+  "ESTJ": "The Supervisor",
+  "ESFJ": "The Provider",
+  "ENFJ": "The Teacher",
+  "ENTJ": "The Commander"
+};
+
 export default function PersonalityQuiz() {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const { updatePersonalityType } = useUserProfile();
 
-  const handleAnswer = (value: string) => {
+  const handleAnswer = async (value: string) => {
     const newAnswers = [...answers, value];
     setAnswers(newAnswers);
 
     if (currentQuestion < questions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
     } else {
-      // Quiz completed, calculate personality type
-      const personalityType = newAnswers.join("");
-      // TODO: Save personality type to user profile
-      router.push("/(app)/(protected)/personality-result");
+      try {
+        // Quiz completed, calculate and save personality type
+        // Note: In a real app, you would need to map these values to proper MBTI types
+        // This is a simplified version that just concatenates the answers
+        const i = newAnswers[1] === "I" ? 0 : 1;
+        const s = newAnswers[3] === "S" ? 0 : 1;
+        const t = newAnswers[0] === "T" ? 0 : 1;
+        const j = newAnswers[2] === "J" ? 0 : 1;
+        
+        // We're simplifying this - a real test would do more complex calculations
+        const type = `${i ? "E" : "I"}${s ? "N" : "S"}${t ? "F" : "T"}${j ? "P" : "J"}`;
+        
+        setSaving(true);
+        await updatePersonalityType(type);
+        setSaving(false);
+        
+        // Navigate to the result page
+        router.push({
+          pathname: "/(app)/(protected)/personality-result",
+          params: { type }
+        });
+      } catch (error) {
+        console.error("Failed to save personality type:", error);
+        setSaving(false);
+      }
     }
   };
 
@@ -92,11 +136,19 @@ export default function PersonalityQuiz() {
                     variant="outline"
                     className="w-full"
                     onPress={() => handleAnswer(option.value)}
+                    disabled={saving}
                   >
                     <Text className="text-left">{option.text}</Text>
                   </Button>
                 ))}
               </View>
+              
+              {saving && (
+                <View className="items-center py-2">
+                  <ActivityIndicator size="small" />
+                  <Muted className="mt-2">Saving your results...</Muted>
+                </View>
+              )}
             </View>
           </Card>
         </View>
