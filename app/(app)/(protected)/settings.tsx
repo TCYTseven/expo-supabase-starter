@@ -57,8 +57,32 @@ export default function Settings() {
 			return "Assistant";
 		}
 
+		// For custom advisors, extract the name from the custom_advisors data
 		if (profile.advisor.startsWith("custom_")) {
-			return "Custom Advisor";
+			if (profile.custom_advisors && profile.custom_advisors !== "Not Set") {
+				try {
+					// Parse the custom advisor data
+					let advisorData;
+					if (typeof profile.custom_advisors === 'string') {
+						advisorData = JSON.parse(profile.custom_advisors);
+					} else {
+						advisorData = profile.custom_advisors;
+					}
+					
+					// Get the name from raw data
+					if (advisorData.raw && advisorData.raw.name) {
+						return advisorData.raw.name;
+					}
+					
+					// Alternative: check direct properties if not in raw
+					if (advisorData.name) {
+						return advisorData.name;
+					}
+				} catch (e) {
+					console.error("Error parsing custom advisor data:", e);
+				}
+			}
+			return "Custom Advisor"; // Fallback if we can't get the name
 		}
 
 		return advisorNames[profile.advisor as keyof typeof advisorNames] || profile.advisor;

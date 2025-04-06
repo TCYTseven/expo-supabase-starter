@@ -284,7 +284,7 @@ export default function PersonalityResult() {
                         <View className="flex-row items-center">
                           {profile?.advisor === advisor.id && (
                             <View className="bg-primary/20 px-2 py-1 rounded mr-2">
-                              <Text className="text-xs text-primary font-medium">Current</Text>
+                              <Text className="text-xs text-primary font-medium">Current: {advisor.name}</Text>
                             </View>
                           )}
                           <Ionicons 
@@ -354,6 +354,8 @@ export default function PersonalityResult() {
             </View>
           </Card>
         </View>
+        {/* Add extra padding at the bottom to ensure content isn't covered by navbar */}
+        <View style={{ height: 80 }} />
       </View>
     </ScrollView>
   );
