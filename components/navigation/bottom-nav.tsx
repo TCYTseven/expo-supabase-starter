@@ -1,15 +1,22 @@
 import React from "react";
 import { View, TouchableOpacity, StyleSheet, ViewStyle } from "react-native";
 import { router, usePathname } from "expo-router";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/ui/text";
 import { theme } from "@/lib/theme";
+
+// Define valid routes
+type AppRoute = 
+  | "/(app)/(protected)" 
+  | "/(app)/(protected)/decide" 
+  | "/(app)/(protected)/history" 
+  | "/(app)/(protected)/settings";
 
 type NavItem = {
   label: string;
   icon: typeof Ionicons extends React.ComponentType<infer T> ? T extends { name: infer K } ? K : never : never;
   activeIcon: typeof Ionicons extends React.ComponentType<infer T> ? T extends { name: infer K } ? K : never : never;
-  route: string;
+  route: AppRoute;
 };
 
 const navItems: NavItem[] = [
@@ -21,9 +28,9 @@ const navItems: NavItem[] = [
   },
   {
     label: "Decide",
-    icon: "navigate-outline" as const, 
-    activeIcon: "navigate" as const,
-    route: "/(app)/(protected)/new-decision",
+    icon: "help-buoy-outline" as const, 
+    activeIcon: "help-buoy" as const,
+    route: "/(app)/(protected)/decide",
   },
   {
     label: "History",
@@ -42,32 +49,39 @@ const navItems: NavItem[] = [
 export function BottomNav() {
   const pathname = usePathname();
 
+  const isActive = (route: AppRoute) => {
+    return pathname === route || 
+           (route === "/(app)/(protected)" && pathname === "/(app)/(protected)/index");
+  };
+
   return (
     <View style={styles.container}>
       {navItems.map((item) => {
-        const isActive = pathname === item.route || 
-                         (item.route === "/(app)/(protected)" && pathname === "/(app)/(protected)/index");
+        const active = isActive(item.route);
         return (
           <TouchableOpacity
             key={item.label}
             style={styles.tab}
-            onPress={() => router.push(item.route as any)}
+            onPress={() => {
+              // Use replace to avoid animation and navigation stack growth
+              router.replace(item.route);
+            }}
           >
             <View style={[
               styles.iconContainer,
-              isActive && styles.activeIconContainer
+              active && styles.activeIconContainer
             ]}>
               <Ionicons 
-                name={isActive ? item.activeIcon : item.icon}
+                name={active ? item.activeIcon : item.icon}
                 size={22} 
-                color={isActive ? theme.colors.primary.DEFAULT : theme.colors.text.muted} 
+                color={active ? theme.colors.primary.DEFAULT : theme.colors.text.muted} 
               />
             </View>
             <Text
               className="text-xs"
               style={{ 
-                color: isActive ? theme.colors.primary.DEFAULT : theme.colors.text.muted,
-                fontWeight: isActive ? '600' : '400',
+                color: active ? theme.colors.primary.DEFAULT : theme.colors.text.muted,
+                fontWeight: active ? '600' : '400',
                 marginTop: 2,
               }}
             >

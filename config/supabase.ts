@@ -6,7 +6,7 @@ import { AppState } from "react-native";
 
 const supabaseUrl = process.env.EXPO_PUBLIC_API_URL as string;
 const supabaseKey = process.env.EXPO_PUBLIC_API_KEY as string;
-
+//test
 export const supabase = createClient(supabaseUrl, supabaseKey, {
 	auth: {
 		storage: AsyncStorage,

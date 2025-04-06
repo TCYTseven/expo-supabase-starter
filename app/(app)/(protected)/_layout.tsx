@@ -6,7 +6,13 @@ import { BottomNav } from "@/components/navigation/bottom-nav";
 export default function ProtectedLayout() {
 	return (
 		<View style={{ flex: 1 }}>
-			<Stack screenOptions={{ headerShown: false }} />
+			<Stack 
+				screenOptions={{ 
+					headerShown: false,
+					// Disable animation between screens
+					animation: "none",
+				}}
+			/>
 			<BottomNav />
 		</View>
 	);

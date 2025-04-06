@@ -34,6 +34,20 @@ export default function Home() {
 						<View className="flex-row flex-wrap gap-4">
 							<TouchableOpacity 
 								className="flex-1 min-w-[150px]"
+								onPress={() => router.push("/(app)/(protected)/decide")}
+							>
+								<Card className="p-4 items-center justify-center h-32">
+									<View className="bg-primary/10 p-3 rounded-full mb-3">
+										<Ionicons name="help-buoy" size={24} color={theme.colors.primary.DEFAULT} />
+									</View>
+									<Text className="text-center font-medium">
+										Decide
+									</Text>
+								</Card>
+							</TouchableOpacity>
+						
+							<TouchableOpacity 
+								className="flex-1 min-w-[150px]"
 								onPress={() => router.push("/(app)/(protected)/new-decision")}
 							>
 								<Card className="p-4 items-center justify-center h-32">
