@@ -15,6 +15,10 @@ export const theme = {
       muted: '#94A3B8',
       primary: '#8B5CF6', // Purple
     },
+    destructive: {
+      DEFAULT: '#EF4444', // Red
+      light: '#F87171',
+    },
     border: '#334155',
   },
   spacing: {

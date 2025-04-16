@@ -93,21 +93,29 @@ const FormLabel = React.forwardRef<
 	React.ElementRef<typeof Label>,
 	Omit<React.ComponentPropsWithoutRef<typeof Label>, "children"> & {
 		children: string;
+		icon?: React.ReactNode;
 	}
->(({ className, nativeID: _nativeID, ...props }, ref) => {
+>(({ className, nativeID: _nativeID, icon, ...props }, ref) => {
 	const { error, formItemNativeID } = useFormField();
 
 	return (
-		<Label
-			ref={ref}
-			className={cn(
-				"pb-1 native:pb-2 px-px",
-				error && "text-destructive",
-				className,
+		<View className="flex-row items-center">
+			{icon && (
+				<View className="mr-2">
+					{icon}
+				</View>
 			)}
-			nativeID={formItemNativeID}
-			{...props}
-		/>
+			<Label
+				ref={ref}
+				className={cn(
+					"pb-1 native:pb-2 px-px",
+					error && "text-destructive",
+					className,
+				)}
+				nativeID={formItemNativeID}
+				{...props}
+			/>
+		</View>
 	);
 });
 FormLabel.displayName = "FormLabel";
@@ -171,12 +179,14 @@ type FormItemProps<T extends React.ElementType<any>, U> = Override<
 > & {
 	label?: string;
 	description?: string;
+	leftIcon?: React.ReactNode;
+	labelIcon?: React.ReactNode;
 };
 
 const FormInput = React.forwardRef<
 	React.ElementRef<typeof Input>,
 	FormItemProps<typeof Input, string>
->(({ label, description, onChange, ...props }, ref) => {
+>(({ label, description, onChange, leftIcon, labelIcon, ...props }, ref) => {
 	const inputRef = React.useRef<React.ComponentRef<typeof Input>>(null);
 	const {
 		error,
@@ -206,7 +216,11 @@ const FormInput = React.forwardRef<
 	return (
 		<FormItem>
 			{!!label && (
-				<FormLabel nativeID={formItemNativeID} onPress={handleOnLabelPress}>
+				<FormLabel 
+					nativeID={formItemNativeID} 
+					onPress={handleOnLabelPress}
+					icon={labelIcon || leftIcon}
+				>
 					{label}
 				</FormLabel>
 			)}
@@ -221,6 +235,7 @@ const FormInput = React.forwardRef<
 				}
 				aria-invalid={!!error}
 				onChangeText={onChange}
+				leftIcon={labelIcon ? undefined : leftIcon}
 				{...props}
 			/>
 			{!!description && <FormDescription>{description}</FormDescription>}

@@ -8,10 +8,13 @@ import Animated, {
 	runOnJS
 } from "react-native-reanimated";
 import { forwardRef, useImperativeHandle } from "react";
+import { cn } from "@/lib/utils";
 
 interface ShakeAnimationProps {
 	children: React.ReactNode;
 	onShakeComplete?: () => void;
+	className?: string;
+	style?: any;
 }
 
 export interface ShakeAnimationRef {
@@ -19,7 +22,7 @@ export interface ShakeAnimationRef {
 }
 
 export const ShakeAnimation = forwardRef<ShakeAnimationRef, ShakeAnimationProps>(
-	({ children, onShakeComplete }, ref) => {
+	({ children, onShakeComplete, className, style }, ref) => {
 		const translateX = useSharedValue(0);
 
 		const shake = () => {
@@ -47,7 +50,7 @@ export const ShakeAnimation = forwardRef<ShakeAnimationRef, ShakeAnimationProps>
 		}));
 
 		return (
-			<Animated.View style={animatedStyle}>
+			<Animated.View style={[animatedStyle, style]} className={className}>
 				{children}
 			</Animated.View>
 		);
