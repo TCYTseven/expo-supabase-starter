@@ -27,7 +27,7 @@ type Step = {
 export default function BuildAdvisor() {
   const [currentStep, setCurrentStep] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
-  const { updateCustomAdvisors } = useUserProfile();
+  const { addCustomAdvisor } = useUserProfile();
   const { user } = useSupabase();
   
   // State to store the generated prompt preview
@@ -161,29 +161,30 @@ export default function BuildAdvisor() {
         tone: freeForm.tone
       };
       
-      // Use the advisor service directly to generate and store the advisor
+      // Use the advisor service to generate the prompt
       createCustomAdvisor(advisorData, user?.id || '')
         .then(result => {
-          if (result.success) {
+          if (result.success && result.advisorPrompt) {
             console.log('Advisor prompt generated:', result.advisorPrompt);
-            // Just navigate back since the service has already updated the profile
-            router.replace("/(app)/(protected)/settings");
+            
+            // Now use the addCustomAdvisor method to add this to the user's list
+            addCustomAdvisor(advisorData, result.advisorPrompt)
+              .then(() => {
+                // Navigate to the view custom advisors page
+                router.replace("/(app)/(protected)/view-custom-advisors" as any);
+              })
+              .catch(err => {
+                console.error('Error adding custom advisor:', err);
+                alert('Failed to save your advisor. Please try again.');
+              });
           } else {
             console.error('Error creating advisor:', result.error);
-            // Fall back to the old method if service fails
-            updateCustomAdvisors(JSON.stringify(advisorData))
-              .then(() => {
-                router.replace("/(app)/(protected)/settings");
-              });
+            alert('Failed to generate advisor. Please try again.');
           }
         })
         .catch(err => {
           console.error("Error calling advisor service:", err);
-          // Fall back to the old method if service fails
-          updateCustomAdvisors(JSON.stringify(advisorData))
-            .then(() => {
-              router.replace("/(app)/(protected)/settings");
-            });
+          alert('Failed to create your advisor. Please try again.');
         });
     }
   };

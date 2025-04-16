@@ -18,7 +18,7 @@ export type AdvisorFormData = {
 };
 
 /**
- * Updates the user's advisor profile with both raw data and AI-generated prompt
+ * Creates a new custom advisor
  */
 export async function createCustomAdvisor(advisorData: AdvisorFormData, userId: string): Promise<{ success: boolean, advisorPrompt?: string, error?: any }> {
   try {
@@ -38,22 +38,7 @@ export async function createCustomAdvisor(advisorData: AdvisorFormData, userId: 
     // Generate AI prompt
     const advisorPrompt = await generateAdvisorPrompt(advisorData);
     
-    // Store both the raw data and the AI-generated prompt
-    const { error } = await supabase
-      .from('user_profiles')
-      .update({ 
-        custom_advisors: {
-          raw: advisorData,
-          prompt: advisorPrompt
-        },
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', userId);
-
-    if (error) {
-      throw error;
-    }
-
+    // Instead of updating the profile directly, we'll let the consumer add to the advisors array
     return { 
       success: true,
       advisorPrompt
