@@ -1,11 +1,11 @@
 import { View, ScrollView, ActivityIndicator, TouchableOpacity } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { H1, H2, Muted } from "@/components/ui/typography";
 import { Card } from "@/components/ui/card";
 import { useUserProfile } from "@/lib/hooks/useUserProfile";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getAdvisorPrompt } from "@/lib/advisorService";
 import { supabase } from "@/config/supabase";
 import { Ionicons } from "@expo/vector-icons";
@@ -84,7 +84,7 @@ const advisors = [
 
 export default function PersonalityResult() {
   const { type } = useLocalSearchParams<{ type: string }>();
-  const { profile, loading, error, updateAdvisor } = useUserProfile();
+  const { profile, loading, error, updateAdvisor, fetchProfile } = useUserProfile();
   const [selectedAdvisor, setSelectedAdvisor] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [customAdvisors, setCustomAdvisors] = useState<any[]>([]);
@@ -97,6 +97,17 @@ export default function PersonalityResult() {
   // Get type information, fallback to INTJ if type not found
   const typeInfo = personalityTypes[personalityType as keyof typeof personalityTypes] || personalityTypes.INTJ;
   
+  // Refresh data when screen is focused, but only if needed
+  useFocusEffect(
+    useCallback(() => {
+      // Only refresh if we need to
+      if (!profile || profile.advisor !== selectedAdvisor) {
+        // Refresh profile data
+        fetchProfile();
+      }
+    }, [fetchProfile, profile, selectedAdvisor])
+  );
+  
   // Initialize selected advisor from profile when loaded
   useEffect(() => {
     if (profile && profile.advisor) {
@@ -104,61 +115,80 @@ export default function PersonalityResult() {
     }
   }, [profile]);
 
-  // Fetch all custom advisors from users in Supabase
+  // Fetch all custom advisors from the current user
   useEffect(() => {
     const fetchCustomAdvisors = async () => {
       try {
         setLoadingAdvisors(true);
-        const { data, error } = await supabase
-          .from('user_profiles')
-          .select('id, custom_advisors')
-          .not('custom_advisors', 'eq', 'Not Set');
         
-        if (error) throw error;
+        if (!profile) return;
         
-        // Process the data to extract advisor information
-        const processedAdvisors = data
-          .filter(item => item.custom_advisors)
-          .map(item => {
-            let advisorData;
-            try {
-              // Try to parse as JSON
-              if (typeof item.custom_advisors === 'string') {
-                advisorData = JSON.parse(item.custom_advisors);
-              } else {
-                advisorData = item.custom_advisors;
-              }
+        // Get custom advisors from the current user's profile
+        const userAdvisors = [];
+        
+        if (profile.custom_advisors && profile.custom_advisors !== "Not Set") {
+          try {
+            let parsedAdvisors;
+            
+            if (typeof profile.custom_advisors === 'string') {
+              parsedAdvisors = JSON.parse(profile.custom_advisors);
+            } else {
+              parsedAdvisors = profile.custom_advisors;
+            }
+            
+            // Check if it's already an array of advisors
+            if (Array.isArray(parsedAdvisors)) {
+              // Process each custom advisor
+              parsedAdvisors.forEach((advisor, index) => {
+                const name = advisor.raw?.name || `Custom Advisor ${index+1}`;
+                
+                userAdvisors.push({
+                  id: advisor.id || `custom_${index}`,
+                  name: name,
+                  style: "Custom",
+                  description: advisor.prompt || "Custom advisor created by you",
+                  stats: {
+                    directness: advisor.raw?.sliders?.directness || 5,
+                    optimism: advisor.raw?.sliders?.optimism || 5,
+                    creativity: advisor.raw?.sliders?.creativity || 5,
+                    detail: advisor.raw?.sliders?.detail || 5,
+                  },
+                  traits: [
+                    ...(advisor.raw?.communicationTraits || []),
+                    ...(advisor.raw?.personalityTraits || [])
+                  ],
+                  userId: profile.id
+                });
+              });
+            } else {
+              // Legacy format - just one advisor
+              const name = parsedAdvisors.raw?.name || 'Custom Advisor';
+              const prompt = parsedAdvisors.prompt || getAdvisorPrompt(profile.custom_advisors);
               
-              // Extract name and description
-              const name = advisorData.raw?.name || 'Custom Advisor';
-              const prompt = getAdvisorPrompt(item.custom_advisors);
-              
-              // Create advisor object with unique ID
-              return {
-                id: `custom_${item.id}`,
+              userAdvisors.push({
+                id: 'custom_legacy',
                 name: name,
                 style: "Custom",
                 description: prompt,
                 stats: {
-                  directness: advisorData.raw?.sliders?.directness || 5,
-                  optimism: advisorData.raw?.sliders?.optimism || 5,
-                  creativity: advisorData.raw?.sliders?.creativity || 5,
-                  detail: advisorData.raw?.sliders?.detail || 5,
+                  directness: parsedAdvisors.raw?.sliders?.directness || 5,
+                  optimism: parsedAdvisors.raw?.sliders?.optimism || 5,
+                  creativity: parsedAdvisors.raw?.sliders?.creativity || 5,
+                  detail: parsedAdvisors.raw?.sliders?.detail || 5,
                 },
                 traits: [
-                  ...(advisorData.raw?.communicationTraits || []),
-                  ...(advisorData.raw?.personalityTraits || [])
+                  ...(parsedAdvisors.raw?.communicationTraits || []),
+                  ...(parsedAdvisors.raw?.personalityTraits || [])
                 ],
-                userId: item.id // to identify who created it
-              };
-            } catch (e) {
-              console.error("Error parsing advisor data:", e);
-              return null;
+                userId: profile.id
+              });
             }
-          })
-          .filter(Boolean); // Remove any null entries
+          } catch (e) {
+            console.error("Error parsing custom advisors:", e);
+          }
+        }
         
-        setCustomAdvisors(processedAdvisors);
+        setCustomAdvisors(userAdvisors);
       } catch (err) {
         console.error("Failed to fetch custom advisors:", err);
       } finally {
@@ -167,19 +197,37 @@ export default function PersonalityResult() {
     };
     
     fetchCustomAdvisors();
-  }, []);
+  }, [profile]);
 
   const handleSelectAdvisor = async (advisorId: string) => {
     try {
       setSaving(true);
-      setSelectedAdvisor(advisorId);
-      await updateAdvisor(advisorId);
-      setSaving(false);
       
-      // Navigate back
-      router.back();
-    } catch (error) {
-      console.error("Failed to update advisor:", error);
+      // Immediately update the local state for responsive UI
+      setSelectedAdvisor(advisorId);
+      
+      // Find the advisor name for better error messaging
+      const advisor = allAdvisors.find(a => a.id === advisorId);
+      const advisorName = advisor ? advisor.name : "selected advisor";
+      
+      try {
+        await updateAdvisor(advisorId);
+        // Navigate back on success
+        router.back();
+      } catch (error: any) {
+        console.error("Failed to update advisor:", error);
+        
+        // Show an error, but keep the local selection
+        if (error.message?.includes('Network request failed')) {
+          alert(`Network error: Selection saved locally but may not sync. "${advisorName}" will be your advisor when connection returns.`);
+          
+          // We still navigate back since the UI will show the selected advisor
+          router.back();
+        } else {
+          alert(`Error selecting advisor: ${error.message || 'Unknown error'}`);
+        }
+      }
+    } finally {
       setSaving(false);
     }
   };
@@ -282,9 +330,9 @@ export default function PersonalityResult() {
                           <Muted>{advisor.style}</Muted>
                         </View>
                         <View className="flex-row items-center">
-                          {profile?.advisor === advisor.id && (
+                          {(profile?.advisor === advisor.id || selectedAdvisor === advisor.id) && (
                             <View className="bg-primary/20 px-2 py-1 rounded mr-2">
-                              <Text className="text-xs text-primary font-medium">Current: {advisor.name}</Text>
+                              <Text className="text-xs text-primary font-medium">Current</Text>
                             </View>
                           )}
                           <Ionicons 

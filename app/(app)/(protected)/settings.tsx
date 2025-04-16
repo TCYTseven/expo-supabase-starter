@@ -1,9 +1,9 @@
 import { View, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { Text } from "@/components/ui/text";
 import { H1, Muted } from "@/components/ui/typography";
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { theme } from "@/lib/theme";
 import { useSupabase } from "@/context/supabase-provider";
 import { useUserProfile } from "@/lib/hooks/useUserProfile";
@@ -32,7 +32,19 @@ const personalityDescriptions = {
 
 export default function Settings() {
 	const { signOut } = useSupabase();
-	const { profile, loading, error } = useUserProfile();
+	const { profile, loading, error, fetchProfile } = useUserProfile();
+
+	// Refresh profile data when screen is focused, but only if needed
+	useFocusEffect(
+		useCallback(() => {
+			// Add a small delay to prevent immediate fetching
+			const timer = setTimeout(() => {
+				fetchProfile();
+			}, 300);
+			
+			return () => clearTimeout(timer);
+		}, [fetchProfile])
+	);
 
 	const renderDivider = () => (
 		<View className="h-px bg-border/50 my-4" />
@@ -58,25 +70,39 @@ export default function Settings() {
 		}
 
 		// For custom advisors, extract the name from the custom_advisors data
-		if (profile.advisor.startsWith("custom_")) {
+		if (profile.advisor.includes("custom_")) {
 			if (profile.custom_advisors && profile.custom_advisors !== "Not Set") {
 				try {
 					// Parse the custom advisor data
-					let advisorData;
+					let allAdvisors;
 					if (typeof profile.custom_advisors === 'string') {
-						advisorData = JSON.parse(profile.custom_advisors);
+						allAdvisors = JSON.parse(profile.custom_advisors);
 					} else {
-						advisorData = profile.custom_advisors;
+						allAdvisors = profile.custom_advisors;
 					}
 					
-					// Get the name from raw data
-					if (advisorData.raw && advisorData.raw.name) {
-						return advisorData.raw.name;
-					}
-					
-					// Alternative: check direct properties if not in raw
-					if (advisorData.name) {
-						return advisorData.name;
+					// Check if we have an array of advisors (new format)
+					if (Array.isArray(allAdvisors)) {
+						// Find the advisor that matches the ID in profile.advisor
+						const selectedAdvisor = allAdvisors.find(advisor => 
+							advisor.id === profile.advisor || 
+							`custom_${advisor.id}` === profile.advisor
+						);
+						
+						if (selectedAdvisor) {
+							return selectedAdvisor.raw?.name || "Custom Advisor";
+						}
+					} else {
+						// Legacy format - single advisor
+						// Get the name from raw data
+						if (allAdvisors.raw && allAdvisors.raw.name) {
+							return allAdvisors.raw.name;
+						}
+						
+						// Alternative: check direct properties if not in raw
+						if (allAdvisors.name) {
+							return allAdvisors.name;
+						}
 					}
 				} catch (e) {
 					console.error("Error parsing custom advisor data:", e);
@@ -85,7 +111,13 @@ export default function Settings() {
 			return "Custom Advisor"; // Fallback if we can't get the name
 		}
 
-		return advisorNames[profile.advisor as keyof typeof advisorNames] || profile.advisor;
+		// Handle built-in advisors
+		if (advisorNames[profile.advisor as keyof typeof advisorNames]) {
+			return advisorNames[profile.advisor as keyof typeof advisorNames];
+		}
+
+		// If nothing else works, display the ID in a user-friendly format
+		return profile.advisor.replace(/_/g, ' ').replace(/^./, str => str.toUpperCase());
 	};
 
 	// Check if custom advisor data exists

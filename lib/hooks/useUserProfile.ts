@@ -31,10 +31,18 @@ export function useUserProfile() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [lastRefreshAttempt, setLastRefreshAttempt] = useState(0);
 
   // Fetch the user's profile
   const fetchProfile = async () => {
     try {
+      // Don't try to refresh more than once every 2 seconds
+      const now = Date.now();
+      if (now - lastRefreshAttempt < 2000) {
+        return;
+      }
+      setLastRefreshAttempt(now);
+      
       setLoading(true);
       setError(null);
       
@@ -43,45 +51,77 @@ export function useUserProfile() {
         return;
       }
 
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
 
-      if (error) {
-        // If the profile doesn't exist, create it
-        if (error.code === 'PGRST116') { // PostgreSQL error for "no rows returned"
-          try {
-            const { data: newProfile, error: insertError } = await supabase
-              .from('user_profiles')
-              .insert([{ 
-                id: user.id,
-                personality_type: "NONE",
-                advisor: "Assistant",
-                custom_advisors: JSON.stringify([]) // Initialize with empty array
-              }])
-              .select()
-              .single();
-            
-            if (insertError) {
-              throw insertError;
+        if (error) {
+          // If the profile doesn't exist, create it
+          if (error.code === 'PGRST116') { // PostgreSQL error for "no rows returned"
+            try {
+              const { data: newProfile, error: insertError } = await supabase
+                .from('user_profiles')
+                .insert([{ 
+                  id: user.id,
+                  personality_type: "NONE",
+                  advisor: "Assistant",
+                  custom_advisors: JSON.stringify([]) // Initialize with empty array
+                }])
+                .select()
+                .single();
+              
+              if (insertError) {
+                throw insertError;
+              }
+              
+              setProfile(newProfile);
+              return;
+            } catch (insertErr) {
+              // If insert fails, use cached profile if available
+              if (profile) {
+                console.warn('Using cached profile due to network error');
+                return;
+              }
+              throw insertErr;
             }
-            
-            setProfile(newProfile);
-            return;
-          } catch (insertErr) {
-            throw insertErr;
+          } else {
+            // If there's another error but we have a cached profile, keep using it
+            if (profile) {
+              console.warn('Using cached profile due to fetch error');
+              return;
+            }
+            throw error;
           }
-        } else {
-          throw error;
         }
-      }
 
-      setProfile(data);
+        setProfile(data);
+      } catch (fetchErr) {
+        // Network error but we have a cached profile
+        if (profile) {
+          console.warn('Network error but using cached profile', fetchErr);
+          return;
+        }
+        throw fetchErr;
+      }
     } catch (err: any) {
       console.error('Error fetching profile:', err);
       setError(err);
+      
+      // If we have a network error and no profile, create a default profile in memory
+      if (!profile && user && err.message?.includes('Network request failed')) {
+        console.warn('Creating fallback profile due to network error');
+        setProfile({
+          id: user.id,
+          personality_type: "NONE",
+          advisor: "Assistant",
+          custom_advisors: JSON.stringify([]),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+      }
     } finally {
       setLoading(false);
     }
