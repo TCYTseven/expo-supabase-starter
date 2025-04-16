@@ -18,6 +18,7 @@ export interface DecisionNode {
   options: { id: string; text: string }[];
   parentId: string | null;
   parentOption?: string;
+  isFinal?: boolean; // Whether this is a final decision node
 }
 
 export interface DecisionTree {
@@ -510,5 +511,168 @@ export async function summarizeDecisionTree(tree: DecisionTree): Promise<string>
     console.error("Error summarizing decision tree:", error);
     // Return a fallback summary if there's an error
     return `📝 ${tree.title}`;
+  }
+}
+
+/**
+ * Checks if a decision tree should be concluded based on depth and context
+ */
+export function shouldConcludeDecision(tree: DecisionTree): boolean {
+  // Get the number of nodes in the decision path
+  const nodeCount = Object.keys(tree.nodes).length;
+  
+  // If we've gone through at least 3 steps, consider concluding
+  if (nodeCount >= 3) {
+    // Get the current node
+    const currentNode = tree.nodes[tree.currentNodeId];
+    
+    // Check if the options look like conclusions
+    // Common conclusion patterns include options containing "yes", "no", "definitely", etc.
+    if (currentNode && currentNode.options.length > 0) {
+      const conclusionPatterns = [
+        /yes/i, /no/i, /definitely/i, /certainly/i, /probably/i, 
+        /recommend/i, /suggest/i, /advise/i, /final/i, /decide/i, /conclusion/i
+      ];
+      
+      // Check if multiple options have conclusion patterns
+      const conclusionOptionCount = currentNode.options.filter(option => 
+        conclusionPatterns.some(pattern => pattern.test(option.text))
+      ).length;
+      
+      // If more than half the options look like conclusions, suggest concluding
+      return conclusionOptionCount >= Math.ceil(currentNode.options.length / 2);
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Generates a final decision and reflection
+ */
+export async function generateFinalDecision(tree: DecisionTree): Promise<{
+  decision: string;
+  reflection: string;
+  updatedTree: DecisionTree;
+}> {
+  try {
+    // Initialize Azure OpenAI client
+    const endpoint = process.env.EXPO_PUBLIC_DECISION_AI_ENDPOINT;
+    const apiKey = process.env.EXPO_PUBLIC_DECISION_AI_API_KEY;
+    const apiVersion = process.env.EXPO_PUBLIC_DECISION_AI_API_VERSION || "2024-04-01-preview";
+    const deploymentName = process.env.EXPO_PUBLIC_DECISION_AI_DEPLOYMENT || "smart8ai";
+    const modelName = process.env.EXPO_PUBLIC_DECISION_AI_MODEL || "gpt-4.1-mini";
+
+    // Create client options
+    const clientOptions = { 
+      endpoint, 
+      apiKey, 
+      deployment: deploymentName, 
+      apiVersion 
+    };
+
+    const client = new AzureOpenAI(clientOptions);
+    
+    // Prepare context from the entire decision path
+    let decisionContext = `Decision topic: ${tree.topic}\n`;
+    if (tree.context) {
+      decisionContext += `Initial context: ${tree.context}\n\n`;
+    }
+    
+    // Extract the decision path by following parent relationships
+    const decisionPath: DecisionNode[] = [];
+    let currentNodeId = tree.currentNodeId;
+    
+    while (currentNodeId) {
+      const node = tree.nodes[currentNodeId];
+      if (!node) break;
+      
+      decisionPath.unshift(node); // Add to front of array to maintain order
+      currentNodeId = node.parentId || '';
+    }
+    
+    // Add the decision path to context
+    decisionPath.forEach((node, index) => {
+      decisionContext += `Step ${index + 1}: ${node.title}\n${node.content}\n`;
+      
+      // If not the last node, add the selected option
+      if (index < decisionPath.length - 1) {
+        const nextNode = decisionPath[index + 1];
+        const selectedOption = node.options.find(opt => 
+          nextNode.parentOption === opt.id
+        );
+        
+        if (selectedOption) {
+          decisionContext += `Selected: ${selectedOption.text}\n\n`;
+        }
+      }
+    });
+    
+    // Call Azure OpenAI to generate the final decision
+    const response = await client.chat.completions.create({
+      model: modelName,
+      messages: [
+        { 
+          role: "system", 
+          content: "You are a thoughtful decision assistant. Based on the decision steps and context provided, generate a final decision recommendation and a reflection that explains the reasoning, considerations, and potential outcomes."
+        },
+        {
+          role: "user",
+          content: `${decisionContext}\n\nBased on this decision process, please provide:\n1. A clear final decision recommendation (1-2 sentences)\n2. A thoughtful reflection on this decision, including key factors considered and potential implications (3-5 sentences)`
+        }
+      ],
+      max_tokens: 1000,
+      temperature: 0.7
+    });
+
+    // Check if response is valid
+    if (!response || !response.choices || response.choices.length === 0) {
+      throw new Error("Invalid response from Azure OpenAI");
+    }
+
+    // Parse the response
+    const content = response.choices[0].message.content?.trim() || "";
+    
+    // Extract decision and reflection from the response
+    let decision = "Based on the considerations, a decision has been reached.";
+    let reflection = content;
+    
+    // Try to separate decision from reflection based on format
+    const decisionMatch = content.match(/(?:1\.\s*|decision:?\s*)(.*?)(?:\n\n|\n2\.|\nreflection:)/is);
+    const reflectionMatch = content.match(/(?:2\.\s*|reflection:?\s*)(.*)/is);
+    
+    if (decisionMatch && decisionMatch[1]) {
+      decision = decisionMatch[1].trim();
+    }
+    
+    if (reflectionMatch && reflectionMatch[1]) {
+      reflection = reflectionMatch[1].trim();
+    }
+    
+    // Mark the current node as final
+    const updatedNodes = { ...tree.nodes };
+    updatedNodes[tree.currentNodeId] = {
+      ...updatedNodes[tree.currentNodeId],
+      isFinal: true
+    };
+    
+    // Create updated tree
+    const updatedTree: DecisionTree = {
+      ...tree,
+      nodes: updatedNodes,
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Save the updated tree
+    await saveDecisionTree(updatedTree);
+    
+    return {
+      decision,
+      reflection,
+      updatedTree
+    };
+  } catch (error) {
+    console.error("Error generating final decision:", error);
+    throw error;
   }
 } 

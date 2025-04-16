@@ -14,7 +14,9 @@ import {
   continueDecisionTree, 
   navigateBack, 
   saveDecisionTree,
-  getDecisionTree
+  getDecisionTree,
+  shouldConcludeDecision,
+  generateFinalDecision
 } from "@/lib/decisionAIService";
 import { getAdvisorPrompt } from "@/lib/advisorService";
 
@@ -25,6 +27,9 @@ export default function Decide() {
   const [decisionTree, setDecisionTree] = useState<DecisionTree | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoadingTree, setIsLoadingTree] = useState(false);
+  const [finalDecision, setFinalDecision] = useState<{ decision: string; reflection: string } | null>(null);
+  const [shouldShowFinalScreen, setShouldShowFinalScreen] = useState(false);
+  const [isGeneratingFinal, setIsGeneratingFinal] = useState(false);
 
   const { profile } = useUserProfile();
   const { user } = useSupabase();
@@ -49,6 +54,15 @@ export default function Decide() {
         setDecisionTree(tree);
         setDecision(tree.topic || "");
         setContext(tree.context || "");
+        
+        // Check if this is a tree with a final decision
+        const currentNode = tree.nodes[tree.currentNodeId];
+        if (currentNode?.isFinal) {
+          setShouldShowFinalScreen(true);
+          
+          // We need to regenerate the final decision
+          await handleGenerateFinalDecision(tree);
+        }
       } else {
         setError("Couldn't find the requested decision tree");
       }
@@ -125,11 +139,34 @@ export default function Decide() {
       
       // Automatically save the updated tree
       await saveDecisionTree(updatedTree);
+      
+      // Check if we should conclude the decision
+      if (shouldConcludeDecision(updatedTree)) {
+        await handleGenerateFinalDecision(updatedTree);
+      }
     } catch (err: any) {
       console.error('Error continuing decision tree:', err);
       setError(err.message || 'Failed to process your selection. Please try again.');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleGenerateFinalDecision = async (tree: DecisionTree) => {
+    setIsGeneratingFinal(true);
+    try {
+      const finalResult = await generateFinalDecision(tree);
+      setFinalDecision({
+        decision: finalResult.decision,
+        reflection: finalResult.reflection
+      });
+      setDecisionTree(finalResult.updatedTree);
+      setShouldShowFinalScreen(true);
+    } catch (err: any) {
+      console.error('Error generating final decision:', err);
+      setError(err.message || 'Failed to generate final decision. Please try again.');
+    } finally {
+      setIsGeneratingFinal(false);
     }
   };
 
@@ -145,6 +182,12 @@ export default function Decide() {
       saveDecisionTree(updatedTree).catch(err => {
         console.error('Error saving tree after going back:', err);
       });
+      
+      // If we were showing the final screen, hide it
+      if (shouldShowFinalScreen) {
+        setShouldShowFinalScreen(false);
+        setFinalDecision(null);
+      }
     }
   };
 
@@ -159,11 +202,18 @@ export default function Decide() {
     }
   };
 
+  const handleConcludeNow = () => {
+    if (!decisionTree) return;
+    handleGenerateFinalDecision(decisionTree);
+  };
+
   const handleNewDecision = () => {
     setDecisionTree(null);
     setDecision("");
     setContext("");
     setError(null);
+    setFinalDecision(null);
+    setShouldShowFinalScreen(false);
   };
 
   // Get the current node from the decision tree
@@ -176,6 +226,88 @@ export default function Decide() {
         <ActivityIndicator size="large" color="#6e3abd" />
         <Text className="text-white mt-4">Loading your decision...</Text>
       </View>
+    );
+  }
+
+  // Final decision screen
+  if (shouldShowFinalScreen && finalDecision && decisionTree) {
+    return (
+      <ScrollView className="flex-1 bg-[#0e0e12]">
+        <View className="p-6 space-y-6">
+          <View className="flex-row justify-between items-center">
+            <H1 className="text-2xl font-bold text-white">Final Decision</H1>
+            <Button
+              variant="ghost"
+              size="icon"
+              onPress={handleNewDecision}
+            >
+              <Ionicons name="add-outline" size={24} color="white" />
+            </Button>
+          </View>
+          
+          <Card className="p-4 bg-[#1a1a22] border-[#3a3a45]">
+            <View className="space-y-3">
+              <Text className="font-medium text-white">Your Question</Text>
+              <View className="bg-[#252530] p-3 rounded-lg">
+                <Text className="text-white">{decisionTree.topic}</Text>
+                {decisionTree.context && (
+                  <Text className="text-[#9b9ba7] mt-2">{decisionTree.context}</Text>
+                )}
+              </View>
+            </View>
+          </Card>
+          
+          <Card className="p-6 bg-[#1a1a22] border-[#3a3a45]">
+            <View className="space-y-8 items-center">
+              <View className="w-16 h-16 rounded-full bg-[#6e3abd] items-center justify-center">
+                <Ionicons name="checkmark" size={32} color="white" />
+              </View>
+              
+              <View className="space-y-2 w-full">
+                <Text className="font-medium text-white text-center text-xl">Decision</Text>
+                <Text className="text-white text-center text-lg">{finalDecision.decision}</Text>
+              </View>
+              
+              <View className="w-full h-px bg-gray-700 my-2" />
+              
+              <View className="space-y-2 w-full">
+                <Text className="font-medium text-white">Reflection</Text>
+                <Text className="text-[#d8d8e0]">{finalDecision.reflection}</Text>
+              </View>
+            </View>
+          </Card>
+          
+          <View className="space-y-4">
+            <Button
+              className="w-full bg-[#6e3abd]"
+              onPress={() => {
+                // Navigate to the history page when done
+                router.push("/(app)/(protected)/history");
+              }}
+            >
+              <Text className="text-white">Done</Text>
+            </Button>
+            
+            <Button
+              variant="outline"
+              className="w-full border-[#3a3a45]"
+              onPress={handleGoBack}
+            >
+              <Ionicons name="arrow-back" size={20} color="white" className="mr-2" />
+              <Text className="text-white">Back to Decision Process</Text>
+            </Button>
+            
+            <Button
+              variant="outline"
+              className="w-full border-[#3a3a45]"
+              onPress={handleNewDecision}
+            >
+              <Ionicons name="refresh" size={20} color="white" className="mr-2" />
+              <Text className="text-white">Start New Decision</Text>
+            </Button>
+          </View>
+        </View>
+      </ScrollView>
     );
   }
 
@@ -274,10 +406,12 @@ export default function Decide() {
               </View>
             </Card>
             
-            {isProcessing ? (
+            {isProcessing || isGeneratingFinal ? (
               <Card className="p-8 bg-[#1a1a22] border-[#3a3a45] items-center">
                 <ActivityIndicator size="large" color="#6e3abd" />
-                <Text className="text-white mt-4">Thinking...</Text>
+                <Text className="text-white mt-4">
+                  {isGeneratingFinal ? "Finalizing your decision..." : "Thinking..."}
+                </Text>
               </Card>
             ) : currentNode ? (
               <Card className="p-4 bg-[#1a1a22] border-[#3a3a45]">
@@ -317,10 +451,10 @@ export default function Decide() {
                     <Button
                       variant="outline"
                       className="flex-1 ml-2 border-[#3a3a45]"
-                      onPress={handleSaveTree}
+                      onPress={handleConcludeNow}
                     >
-                      <Ionicons name="bookmark-outline" size={20} color="white" />
-                      <Text className="text-white">Save</Text>
+                      <Ionicons name="checkmark-done" size={20} color="white" />
+                      <Text className="text-white">Conclude</Text>
                     </Button>
                   </View>
                 </View>
