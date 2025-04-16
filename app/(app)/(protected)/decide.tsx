@@ -1,5 +1,5 @@
 import { View, ScrollView, TextInput, TouchableOpacity, Image, ActivityIndicator } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { H1, H2, Muted } from "@/components/ui/typography";
@@ -13,9 +13,8 @@ import {
   generateDecisionTree, 
   continueDecisionTree, 
   navigateBack, 
-  saveDecisionTree, 
-  getUserDecisionTrees,
-  deleteDecisionTree
+  saveDecisionTree,
+  getDecisionTree
 } from "@/lib/decisionAIService";
 import { getAdvisorPrompt } from "@/lib/advisorService";
 
@@ -25,27 +24,39 @@ export default function Decide() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [decisionTree, setDecisionTree] = useState<DecisionTree | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [savedTrees, setSavedTrees] = useState<DecisionTree[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
+  const [isLoadingTree, setIsLoadingTree] = useState(false);
 
   const { profile } = useUserProfile();
   const { user } = useSupabase();
+  const params = useLocalSearchParams<{ treeId?: string; topic?: string }>();
 
   useEffect(() => {
-    // Load saved decision trees when the component mounts
-    if (user?.id) {
-      fetchSavedTrees();
+    // Check if we're continuing a specific tree
+    if (params.treeId && user?.id) {
+      loadSpecificTree(params.treeId);
+    } 
+    // Check if we're starting a new decision based on a topic
+    else if (params.topic) {
+      setDecision(params.topic);
     }
-  }, [user?.id]);
+  }, [params.treeId, params.topic, user?.id]);
 
-  const fetchSavedTrees = async () => {
-    if (!user?.id) return;
-
+  const loadSpecificTree = async (treeId: string) => {
+    setIsLoadingTree(true);
     try {
-      const trees = await getUserDecisionTrees(user.id);
-      setSavedTrees(trees);
-    } catch (err) {
-      console.error('Error fetching saved decision trees:', err);
+      const tree = await getDecisionTree(treeId);
+      if (tree) {
+        setDecisionTree(tree);
+        setDecision(tree.topic || "");
+        setContext(tree.context || "");
+      } else {
+        setError("Couldn't find the requested decision tree");
+      }
+    } catch (err: any) {
+      console.error("Error loading specific tree:", err);
+      setError(err.message || "Failed to load the decision tree");
+    } finally {
+      setIsLoadingTree(false);
     }
   };
 
@@ -93,7 +104,6 @@ export default function Decide() {
       
       // Automatically save the tree after generation
       await saveDecisionTree(newTree);
-      await fetchSavedTrees();
     } catch (err: any) {
       console.error('Error generating decision tree:', err);
       setError(err.message || 'Failed to generate the decision tree. Please try again.');
@@ -143,29 +153,9 @@ export default function Decide() {
     
     try {
       await saveDecisionTree(decisionTree);
-      await fetchSavedTrees();
     } catch (err) {
       console.error('Error saving decision tree:', err);
       setError('Failed to save your decision tree.');
-    }
-  };
-
-  const handleLoadTree = (tree: DecisionTree) => {
-    setDecisionTree(tree);
-    setShowHistory(false);
-  };
-
-  const handleDeleteTree = async (treeId: string) => {
-    try {
-      await deleteDecisionTree(treeId);
-      await fetchSavedTrees();
-      
-      // If the deleted tree is the current one, reset the view
-      if (decisionTree?.id === treeId) {
-        setDecisionTree(null);
-      }
-    } catch (err) {
-      console.error('Error deleting decision tree:', err);
     }
   };
 
@@ -179,6 +169,16 @@ export default function Decide() {
   // Get the current node from the decision tree
   const currentNode = decisionTree?.nodes[decisionTree.currentNodeId];
 
+  // Show loading indicator while fetching a specific tree
+  if (isLoadingTree) {
+    return (
+      <View className="flex-1 bg-[#0e0e12] items-center justify-center">
+        <ActivityIndicator size="large" color="#6e3abd" />
+        <Text className="text-white mt-4">Loading your decision...</Text>
+      </View>
+    );
+  }
+
   return (
     <ScrollView className="flex-1 bg-[#0e0e12]">
       <View className="p-6 space-y-6">
@@ -187,14 +187,6 @@ export default function Decide() {
           
           {decisionTree ? (
             <View className="flex-row">
-              <Button
-                variant="ghost"
-                size="icon"
-                onPress={() => setShowHistory(!showHistory)}
-                className="mr-2"
-              >
-                <Ionicons name="time-outline" size={24} color="white" />
-              </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -221,52 +213,7 @@ export default function Decide() {
           </Card>
         )}
 
-        {showHistory ? (
-          <View className="space-y-4">
-            <H2 className="text-xl text-white">Decision History</H2>
-            {savedTrees.length === 0 ? (
-              <Card className="p-4 bg-[#1a1a22] border-[#3a3a45]">
-                <Text className="text-white text-center">No saved decisions yet</Text>
-              </Card>
-            ) : (
-              savedTrees.map(tree => (
-                <Card key={tree.id} className="p-4 bg-[#1a1a22] border-[#3a3a45]">
-                  <TouchableOpacity 
-                    className="flex-row justify-between items-center"
-                    onPress={() => handleLoadTree(tree)}
-                  >
-                    <View className="flex-1">
-                      <Text className="text-white font-medium">{tree.title}</Text>
-                      <Muted className="text-[#9b9ba7]">
-                        {new Date(tree.updatedAt).toLocaleDateString()}
-                      </Muted>
-                    </View>
-                    <View className="flex-row">
-                      <TouchableOpacity
-                        onPress={() => handleLoadTree(tree)}
-                        className="p-2"
-                      >
-                        <Ionicons name="open-outline" size={20} color="#9b9ba7" />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => handleDeleteTree(tree.id)}
-                        className="p-2"
-                      >
-                        <Ionicons name="trash-outline" size={20} color="#9b9ba7" />
-                      </TouchableOpacity>
-                    </View>
-                  </TouchableOpacity>
-                </Card>
-              ))
-            )}
-            <Button
-              className="bg-[#6e3abd]"
-              onPress={() => setShowHistory(false)}
-            >
-              <Text className="text-white">Back to Decision</Text>
-            </Button>
-          </View>
-        ) : !decisionTree ? (
+        {!decisionTree ? (
           <Card className="p-4 bg-[#1a1a22] border-[#3a3a45]">
             <View className="space-y-6">
               <View className="space-y-3">
@@ -311,17 +258,6 @@ export default function Decide() {
               >
                 <Text className="text-white">{isProcessing ? "Processing..." : "Start Decision Process"}</Text>
               </Button>
-              
-              {savedTrees.length > 0 && (
-                <Button
-                  variant="outline"
-                  className="w-full border-[#3a3a45]"
-                  onPress={() => setShowHistory(true)}
-                >
-                  <Ionicons name="time-outline" size={20} color="white" className="mr-2" />
-                  <Text className="text-white">View Decision History</Text>
-                </Button>
-              )}
             </View>
           </Card>
         ) : (

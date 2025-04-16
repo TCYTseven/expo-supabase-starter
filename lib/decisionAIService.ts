@@ -439,4 +439,76 @@ export async function deleteDecisionTree(treeId: string): Promise<void> {
     console.error("Error deleting decision tree:", error);
     throw error;
   }
+}
+
+/**
+ * Generates a summary with emoji for a decision tree
+ */
+export async function summarizeDecisionTree(tree: DecisionTree): Promise<string> {
+  try {
+    // Initialize Azure OpenAI client
+    const endpoint = process.env.EXPO_PUBLIC_DECISION_AI_ENDPOINT;
+    const apiKey = process.env.EXPO_PUBLIC_DECISION_AI_API_KEY;
+    const apiVersion = process.env.EXPO_PUBLIC_DECISION_AI_API_VERSION || "2024-04-01-preview";
+    const deploymentName = process.env.EXPO_PUBLIC_DECISION_AI_DEPLOYMENT || "smart8ai";
+    const modelName = process.env.EXPO_PUBLIC_DECISION_AI_MODEL || "gpt-4.1-mini";
+
+    // Create client options
+    const clientOptions = { 
+      endpoint, 
+      apiKey, 
+      deployment: deploymentName, 
+      apiVersion 
+    };
+
+    const client = new AzureOpenAI(clientOptions);
+    
+    // Build the content to summarize - get the decision topic and context
+    let decisionContent = `Decision topic: ${tree.topic}`;
+    if (tree.context) {
+      decisionContent += `\nContext: ${tree.context}`;
+    }
+    
+    // Get the key nodes (first node + current node if different)
+    const rootNodeId = Object.keys(tree.nodes).find(id => tree.nodes[id].parentId === null) || '';
+    const rootNode = tree.nodes[rootNodeId];
+    const currentNode = tree.nodes[tree.currentNodeId];
+    
+    if (rootNode) {
+      decisionContent += `\nInitial consideration: ${rootNode.title}\n${rootNode.content}`;
+    }
+    
+    if (currentNode && currentNode.id !== rootNodeId) {
+      decisionContent += `\nCurrent consideration: ${currentNode.title}\n${currentNode.content}`;
+    }
+
+    // Call Azure OpenAI to generate the summary
+    const response = await client.chat.completions.create({
+      model: modelName,
+      messages: [
+        { 
+          role: "system", 
+          content: "You are a helpful assistant that creates very concise summaries. Summarize the decision in one short sentence and include one relevant emoji at the beginning."
+        },
+        {
+          role: "user",
+          content: `Summarize this decision process in one short sentence with an emoji at the beginning:\n${decisionContent}`
+        }
+      ],
+      max_tokens: 150,
+      temperature: 0.7
+    });
+
+    // Check if response is valid
+    if (!response || !response.choices || response.choices.length === 0) {
+      throw new Error("Invalid response from Azure OpenAI");
+    }
+
+    // Return the summary
+    return response.choices[0].message.content?.trim() || `${tree.title}`;
+  } catch (error) {
+    console.error("Error summarizing decision tree:", error);
+    // Return a fallback summary if there's an error
+    return `📝 ${tree.title}`;
+  }
 } 
