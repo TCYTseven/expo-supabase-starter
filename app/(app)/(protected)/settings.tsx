@@ -70,7 +70,8 @@ export default function Settings() {
 		}
 
 		// For custom advisors, extract the name from the custom_advisors data
-		if (profile.advisor.includes("custom_")) {
+		if (profile.advisor && profile.advisor.toString().includes("custom_") || 
+		    profile.advisor && /^[a-z0-9]{10,}$/i.test(profile.advisor)) { // Match both "custom_" and random IDs
 			if (profile.custom_advisors && profile.custom_advisors !== "Not Set") {
 				try {
 					// Parse the custom advisor data
@@ -83,14 +84,30 @@ export default function Settings() {
 					
 					// Check if we have an array of advisors (new format)
 					if (Array.isArray(allAdvisors)) {
-						// Find the advisor that matches the ID in profile.advisor
-						const selectedAdvisor = allAdvisors.find(advisor => 
+						// Find the advisor that matches the ID in profile.advisor directly
+						let selectedAdvisor = allAdvisors.find(advisor => 
 							advisor.id === profile.advisor || 
 							`custom_${advisor.id}` === profile.advisor
 						);
 						
+						// If not found, do a fallback fuzzy match (handle when IDs are different formats)
+						if (!selectedAdvisor && profile.advisor) {
+							// Try to get just the last part of both IDs for comparison
+							const shortAdvisorId = profile.advisor.split('_').pop() || profile.advisor;
+							selectedAdvisor = allAdvisors.find(advisor => 
+								advisor.id.includes(shortAdvisorId) || 
+								shortAdvisorId.includes(advisor.id)
+							);
+						}
+						
 						if (selectedAdvisor) {
 							return selectedAdvisor.raw?.name || "Custom Advisor";
+						} else {
+							// Try to find any advisor with a name if we couldn't match by ID
+							const firstAdvisor = allAdvisors[0];
+							if (firstAdvisor && firstAdvisor.raw?.name) {
+								return firstAdvisor.raw.name;
+							}
 						}
 					} else {
 						// Legacy format - single advisor
@@ -116,8 +133,8 @@ export default function Settings() {
 			return advisorNames[profile.advisor as keyof typeof advisorNames];
 		}
 
-		// If nothing else works, display the ID in a user-friendly format
-		return profile.advisor.replace(/_/g, ' ').replace(/^./, str => str.toUpperCase());
+		// If nothing else works, display in a more user-friendly format
+		return "Custom Advisor";
 	};
 
 	// Check if custom advisor data exists
