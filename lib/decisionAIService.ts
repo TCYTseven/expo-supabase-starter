@@ -358,13 +358,20 @@ export async function saveDecisionTree(tree: DecisionTree): Promise<void> {
 /**
  * Gets all decision trees for a user
  */
-export async function getUserDecisionTrees(userId: string): Promise<DecisionTree[]> {
+export async function getUserDecisionTrees(userId: string, limit?: number): Promise<DecisionTree[]> {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('decision_trees')
       .select('*')
       .eq('user_id', userId)
       .order('updated_at', { ascending: false });
+      
+    // Apply limit if provided
+    if (limit && typeof limit === 'number') {
+      query = query.limit(limit);
+    }
+    
+    const { data, error } = await query;
       
     if (error) {
       throw error;

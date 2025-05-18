@@ -1,4 +1,4 @@
-import { View, ScrollView, TouchableOpacity, StyleSheet, Text as RNText } from "react-native";
+import { View, ScrollView, TouchableOpacity, StyleSheet, Text as RNText, Platform } from "react-native";
 import { router } from "expo-router";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
@@ -85,7 +85,9 @@ export default function Welcome() {
 						
 						<View style={styles.mainContent}>
 							<View style={styles.logoContainer}>
-								<H1 style={styles.title}>Smart8Ball</H1>
+								<View style={styles.titleWrapper}>
+									<H1 style={styles.title}>Smart8Ball</H1>
+								</View>
 								<Muted style={styles.subtitle}>
 									Your AI-powered decision-making companion
 								</Muted>
@@ -154,11 +156,11 @@ const styles = StyleSheet.create({
 		flex: 1,
 		padding: 24,
 		justifyContent: 'space-between',
-		paddingTop: theme.spacing.safeTop,
+		paddingTop: Platform.OS === 'ios' ? 50 : 30,
 		paddingBottom: 40,
 	},
 	spacer: {
-		flex: 0.3, // Pushes content down
+		flex: 0.2,
 	},
 	mainContent: {
 		flex: 1,
@@ -167,12 +169,18 @@ const styles = StyleSheet.create({
 	logoContainer: {
 		alignItems: 'center',
 		marginBottom: 20,
+		paddingTop: 15,
+	},
+	titleWrapper: {
+		paddingVertical: 10,
 	},
 	title: {
 		fontSize: 38,
 		fontWeight: 'bold',
 		color: theme.colors.text.DEFAULT,
 		textAlign: 'center',
+		includeFontPadding: true,
+		textAlignVertical: 'center',
 	},
 	subtitle: {
 		fontSize: 16,
@@ -185,7 +193,7 @@ const styles = StyleSheet.create({
 		justifyContent: 'center',
 		marginTop: 20,
 		marginBottom: 20,
-		height: 180, // Made smaller to fit better
+		height: 180,
 	},
 	illustrationContainer: {
 		width: '100%',
