@@ -583,13 +583,10 @@ export default function Decide() {
                 colors={['rgba(139, 92, 246, 0.1)', 'transparent']}
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 6 }}
               />
-              <View className="p-5">
-                <Text className="font-semibold text-white bg-primary/80 px-3 py-1 rounded-md text-sm inline-block mb-3">
-                  YOUR QUESTION
-                </Text>
-                <Text className="text-text text-lg font-medium">{decisionTree.topic}</Text>
+              <View className="p-4">
+                <Text className="text-text text-base font-medium">{decisionTree.topic}</Text>
                 {decisionTree.context && (
-                  <Text className="text-muted mt-2">{decisionTree.context}</Text>
+                  <Text className="text-muted text-sm mt-1">{decisionTree.context}</Text>
                 )}
               </View>
             </Card>
@@ -611,76 +608,66 @@ export default function Decide() {
                 </View>
               </Card>
             ) : currentNode ? (
-              <Card className="bg-background-card border-none shadow-lg overflow-hidden">
-                <LinearGradient
-                  colors={['rgba(139, 92, 246, 0.1)', 'transparent']}
-                  style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 6 }}
-                />
-                <View className="p-5 space-y-6">
-                  <View className="space-y-3">
-                    <Text className="font-semibold text-white bg-primary/80 px-3 py-1 rounded-md text-sm inline-block">
-                      CONSIDERATION
+              <>
+                <Card className="bg-background-card border-none shadow-lg overflow-hidden">
+                  <LinearGradient
+                    colors={['rgba(139, 92, 246, 0.1)', 'transparent']}
+                    style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 6 }}
+                  />
+                  <View className="p-6 space-y-4">
+                    <Text className="text-primary font-medium text-lg">
+                      {currentNode.title}
                     </Text>
-                    <Text className="text-text text-xl font-medium mt-2">{currentNode.title}</Text>
-                    <Text className="text-text leading-6">{currentNode.content}</Text>
-                  </View>
-                  
-                  <View className="space-y-3 mt-3">
-                    <Text className="font-semibold text-white bg-primary/80 px-3 py-1 rounded-md text-sm inline-block">
-                      YOUR OPTIONS
+                    
+                    <Text className="text-text leading-6 text-base">
+                      {currentNode.content.length > 300 
+                        ? currentNode.content.substring(0, 300) + "..." 
+                        : currentNode.content}
                     </Text>
+                    
                     <View className="space-y-3 mt-2">
-                      {currentNode.options.map((option, index) => (
+                      {currentNode.options.map((option) => (
                         <TouchableOpacity
                           key={option.id}
-                          className="w-full border-2 border-primary/30 rounded-xl p-4 bg-background-input active:opacity-80"
+                          className={`p-4 border border-primary/30 rounded-lg ${isProcessing ? 'opacity-50' : ''} active:bg-primary/10`}
                           onPress={() => handleOptionSelect(option.id)}
-                          activeOpacity={0.8}
+                          disabled={isProcessing}
                         >
-                          <View className="flex-row items-center">
-                            <View className="w-8 h-8 rounded-full bg-primary/20 items-center justify-center mr-3">
-                              <Text className="text-primary font-semibold">{index + 1}</Text>
-                            </View>
-                            <Text className="flex-1 text-text font-medium">{option.text}</Text>
-                            <Ionicons name="chevron-forward" size={22} color={theme.colors.text.DEFAULT} />
-                          </View>
+                          <Text className="text-text font-medium">{option.text}</Text>
                         </TouchableOpacity>
                       ))}
                     </View>
                   </View>
+                </Card>
+
+                <View className="flex-row space-x-4 mt-4">
+                  <Button
+                    variant="outline"
+                    className="flex-1 p-3 border-border/30 rounded-xl"
+                    onPress={handleGoBack}
+                    disabled={!currentNode.parentId || isProcessing}
+                  >
+                    <View className="flex-row items-center">
+                      <Ionicons name="arrow-back" size={20} color={!currentNode.parentId || isProcessing ? theme.colors.text.muted : theme.colors.text.DEFAULT} style={{ marginRight: 8 }} />
+                      <Text className={!currentNode.parentId || isProcessing ? "text-muted" : "text-text"}>Back</Text>
+                    </View>
+                  </Button>
                   
-                  <View className="flex-row space-x-4 mt-4 pt-3 border-t border-border/20">
+                  {Object.keys(decisionTree.nodes).length >= 3 && (
                     <Button
                       variant="outline"
-                      className={`flex-1 py-4 ${!currentNode.parentId ? 'opacity-50' : ''} rounded-xl`}
-                      onPress={handleGoBack}
-                      disabled={!currentNode.parentId}
-                    >
-                      <View className="flex-row items-center justify-center">
-                        <Ionicons 
-                          name="arrow-back" 
-                          size={20} 
-                          color={currentNode.parentId ? theme.colors.text.DEFAULT : theme.colors.text.muted} 
-                          style={{ marginRight: 8 }}
-                        />
-                        <Text className={currentNode.parentId ? "text-text" : "text-muted"}>
-                          Back
-                        </Text>
-                      </View>
-                    </Button>
-                    
-                    <Button
-                      className="flex-1 py-4 bg-primary/30 rounded-xl"
+                      className="flex-1 p-3 border-border/30 rounded-xl"
                       onPress={handleConcludeNow}
+                      disabled={isProcessing}
                     >
-                      <View className="flex-row items-center justify-center">
-                        <Ionicons name="checkmark-done" size={20} color={theme.colors.text.DEFAULT} style={{ marginRight: 8 }} />
-                        <Text className="text-text font-medium">Conclude</Text>
+                      <View className="flex-row items-center">
+                        <Ionicons name="checkmark-circle" size={20} color={isProcessing ? theme.colors.text.muted : theme.colors.primary.DEFAULT} style={{ marginRight: 8 }} />
+                        <Text className={isProcessing ? "text-muted" : "text-primary"}>Conclude</Text>
                       </View>
                     </Button>
-                  </View>
+                  )}
                 </View>
-              </Card>
+              </>
             ) : (
               <Card className="p-5 bg-background-card border-none shadow-lg">
                 <View className="items-center p-4">

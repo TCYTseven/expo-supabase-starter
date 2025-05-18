@@ -62,8 +62,36 @@ export async function generateDecisionTree(
     const client = new AzureOpenAI(clientOptions);
 
     // Build prompt with context and advisor prompt if available
-    let systemPrompt = `You are an AI decision-making assistant that helps users make decisions by creating structured decision trees. 
-Your goal is to help the user think through their decision methodically and consider important factors.`;
+    let systemPrompt = `You are an AI decision-making assistant that helps users make decisions by creating structured decision trees.
+Your goal is to help the user think through their decision methodically by asking important questions and providing direct response options.
+
+IMPORTANT FORMAT GUIDELINES:
+1. For each step, ask a SINGLE clear, focused question related to the decision.
+2. Keep explanations concise (3-5 sentences).
+3. DO NOT use markdown formatting, titles, or labels in your response.
+4. Provide 2-5 specific, detailed response options. Don't just use generic yes/no answers.
+5. Options MUST be specific statements with relevant details, not generic responses.
+6. Put ALL the information needed in the button options - they should be self-contained.
+
+For example:
+Question: "Should I quit my job to become an actor?"
+Your response should be structured like:
+- Title: Financial Readiness
+- Content: Do you have enough savings or alternate income to support yourself during the transition?
+- Options (GOOD examples):
+  1. I have enough savings to live without income for 6+ months
+  2. I have some savings but would need part-time work within 3 months
+  3. I have a partner who can support us financially during my transition
+  4. I don't have sufficient savings and no safety net
+  5. I have industry connections that could lead to paid gigs quickly
+
+BAD OPTIONS (don't use these generic styles):
+  - "Yes, I have savings"
+  - "No, I don't have enough"
+  - "I need to explore this further"
+  - "This isn't applicable to my situation"
+
+Make every option specific, detailed and tailored to the question.`;
 
     if (personalityType && personalityType !== "NONE") {
       systemPrompt += `\nThe user's personality type is ${personalityType}. Tailor your advice to match this personality.`;
@@ -83,7 +111,7 @@ Your goal is to help the user think through their decision methodically and cons
         },
         {
           role: "user",
-          content: `I need help making a decision about: ${topic}. ${context ? `Additional context: ${context}` : ""}`
+          content: `I need help making a decision about: ${topic}. ${context ? `Additional context: ${context}` : ""}\n\nPlease provide a focused question with 2-4 answer options formatted as statements, not questions.`
         }
       ],
       max_tokens: 800,
@@ -171,6 +199,14 @@ function parseAIResponse(content: string, fallbackTitle: string): {
     }
   }
   
+  // Clean up the title - remove any markdown and format labels
+  title = title
+    .replace(/^#+\s+/, '') // Remove heading markers
+    .replace(/\*\*/g, '')  // Remove bold markers
+    .replace(/TITLE:?\s*/i, '') // Remove "TITLE:" prefix
+    .replace(/DECISION:?\s*/i, '') // Remove "DECISION:" prefix
+    .trim();
+  
   // Extract options - look for lines starting with -, *, •, or numbered lists
   let optionsStartIndex = -1;
   const options: string[] = [];
@@ -181,8 +217,15 @@ function parseAIResponse(content: string, fallbackTitle: string): {
       if (optionsStartIndex === -1) optionsStartIndex = i;
       
       // Extract the option text without the bullet or number
-      const optionText = line.replace(/^[-*•]\s/, '').replace(/^\d+\.\s/, '');
+      const optionText = line.replace(/^[-*•]\s/, '').replace(/^\d+\.\s/, '')
+        .replace(/\*\*/g, '') // Remove bold markers
+        .replace(/Options?:?\s*/i, '') // Remove "Options:" prefix
+        .trim();
+      
       options.push(optionText);
+      
+      // Limit to 5 options maximum
+      if (options.length >= 5) break;
     }
   }
   
@@ -194,9 +237,23 @@ function parseAIResponse(content: string, fallbackTitle: string): {
     // If no options were found, all remaining lines are content
     nodeContent = lines.slice(startContentIndex).join('\n').trim();
     
-    // Generate some default options
-    options.push('Tell me more', 'Explore alternatives', 'Consider other factors');
+    // Generate more specific fallback options based on the decision context
+    options.push(
+      'I have experience with this and feel confident moving forward',
+      'I need to gather more information before deciding',
+      'I have concerns about potential risks in this situation',
+      'I want to consider alternative approaches first',
+      'This aligns with my long-term goals and values'
+    );
   }
+  
+  // Clean up the node content - remove any markdown and format labels
+  nodeContent = nodeContent
+    .replace(/\*\*/g, '') // Remove bold markers
+    .replace(/EXPLANATION:?\s*/i, '') // Remove "EXPLANATION:" prefix
+    .replace(/CONTENT:?\s*/i, '') // Remove "CONTENT:" prefix
+    .replace(/QUESTION:?\s*/i, '') // Remove "QUESTION:" prefix
+    .trim();
   
   return {
     title,
@@ -274,11 +331,22 @@ export async function continueDecisionTree(
       messages: [
         { 
           role: "system", 
-          content: "You are an AI decision-making assistant. Continue the decision tree based on the user's selection. Provide a title, detailed explanation, and 2-4 options for the next step."
+          content: `You are an AI decision-making assistant. Continue the decision tree based on the user's selection.
+
+IMPORTANT FORMAT GUIDELINES:
+1. Ask a SINGLE clear, focused question based on the user's previous choice.
+2. Keep explanations concise (3-5 sentences).
+3. DO NOT use markdown formatting, titles, or labels in your response.
+4. Provide 2-5 specific, detailed response options that reflect realistic scenarios.
+5. Options MUST be specific statements with relevant details, not generic yes/no responses.
+6. Put ALL the information needed in the button options - they should be self-contained.
+7. Create a simple, clear title for this step.
+
+Options should be specific and tailored to the decision context. Avoid generic options like "I want to explore this further" or "This doesn't apply to me".`
         },
         {
           role: "user",
-          content: history + "Based on this selection, what's the next step in making this decision? Provide a title, explanation, and 2-4 possible options."
+          content: history + "Based on this selection, what's the next important question to ask? Provide a focused question with 2-4 answer options formatted as statements, not questions."
         }
       ],
       max_tokens: 800,
@@ -533,13 +601,17 @@ export function shouldConcludeDecision(tree: DecisionTree): boolean {
     return true;
   }
   
-  // If we've gone through at least 3 steps, consider concluding based on context
+  // Never conclude before 3 steps minimum (root + 2 more nodes)
+  if (nodeCount < 3) {
+    return false;
+  }
+  
+  // Start considering conclusion after 3+ steps
   if (nodeCount >= 3) {
     // Get the current node
     const currentNode = tree.nodes[tree.currentNodeId];
     
     // Check if the options look like conclusions
-    // Common conclusion patterns include options containing "yes", "no", "definitely", etc.
     if (currentNode && currentNode.options.length > 0) {
       const conclusionPatterns = [
         /yes/i, /no/i, /definitely/i, /certainly/i, /probably/i, 
@@ -557,7 +629,7 @@ export function shouldConcludeDecision(tree: DecisionTree): boolean {
       }
       
       // As we get deeper in the tree, increase likelihood of concluding
-      // At 5 nodes, 30% chance; at 7 nodes, 60% chance; at 9 nodes, 90% chance
+      // But only after 5+ nodes to ensure at least a few meaningful steps
       if (nodeCount >= 5) {
         const conclusionProbability = (nodeCount - 4) * 0.15; // 15% increase per node after 4
         return Math.random() < conclusionProbability;

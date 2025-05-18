@@ -1,4 +1,4 @@
-import { View, ScrollView, ActivityIndicator } from "react-native";
+import { View, ScrollView, ActivityIndicator, Platform, Dimensions } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
@@ -7,6 +7,10 @@ import { Card } from "@/components/ui/card";
 import { useState, useEffect } from "react";
 import { getDecisionTree, DecisionTree, summarizeDecisionTree } from "@/lib/decisionAIService";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+
+// Add platform detection for consistent padding
+const isIOS = Platform.OS === 'ios';
 
 export default function DecisionView() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -114,16 +118,32 @@ export default function DecisionView() {
   }
 
   return (
-    <ScrollView className="flex-1 bg-background">
-      <View className="p-6 space-y-6">
+    <ScrollView 
+      className="flex-1 bg-background"
+      contentContainerStyle={{ paddingBottom: 120, paddingTop: isIOS ? 100 : 60 }}
+    >
+      <LinearGradient
+        colors={['rgba(139, 92, 246, 0.15)', 'transparent']}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200 }}
+      />
+      
+      <View className="px-6 space-y-6 w-full max-w-lg mx-auto">
         <View className="flex-row justify-between items-center">
-          <H1 className="text-2xl font-bold">Decision Details</H1>
+          <View>
+            <H1 className="text-2xl font-bold text-text">
+              Decision Details
+            </H1>
+            <Muted>
+              Review your decision process
+            </Muted>
+          </View>
           <Button
             variant="ghost"
             size="icon"
+            className="rounded-full bg-primary/10"
             onPress={() => router.back()}
           >
-            <Text>✕</Text>
+            <Ionicons name="close" size={20} color="#6e3abd" />
           </Button>
         </View>
 
@@ -181,7 +201,7 @@ export default function DecisionView() {
             <Button
               className="w-full"
               onPress={() => router.push({
-                pathname: "/(app)/(protected)/new-decision",
+                pathname: "/(app)/(protected)/decide",
                 params: { topic: decisionTree.topic }
               })}
             >

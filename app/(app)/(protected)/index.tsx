@@ -94,7 +94,7 @@ export default function Home() {
 					style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200 }}
 				/>
 				
-				<View className="px-6 space-y-6 w-full max-w-lg mx-auto">
+				<View className="px-6 space-y-8 w-full max-w-lg mx-auto">
 					<View className="flex-row justify-between items-center">
 						<View>
 							<H1 className="text-2xl font-bold text-text">
@@ -116,9 +116,9 @@ export default function Home() {
 								className="flex-1 min-w-[150px]"
 								onPress={() => router.push("/(app)/(protected)/decide")}
 							>
-								<Card className="p-4 items-center justify-center h-32">
-									<View className="bg-primary/10 p-3 rounded-full mb-3">
-										<Ionicons name="help-buoy" size={24} color={theme.colors.primary.DEFAULT} />
+								<Card className="p-4 items-center justify-center h-28">
+									<View className="bg-primary/10 p-2.5 rounded-full mb-2">
+										<Ionicons name="help-buoy" size={22} color={theme.colors.primary.DEFAULT} />
 									</View>
 									<Text className="text-center font-medium">
 										Decide
@@ -130,9 +130,9 @@ export default function Home() {
 								className="flex-1 min-w-[150px]"
 								onPress={() => router.push("/(app)/(protected)/personality")}
 							>
-								<Card className="p-4 items-center justify-center h-32">
-									<View className="bg-primary/10 p-3 rounded-full mb-3">
-										<Ionicons name="person" size={24} color={theme.colors.primary.DEFAULT} />
+								<Card className="p-4 items-center justify-center h-28">
+									<View className="bg-primary/10 p-2.5 rounded-full mb-2">
+										<Ionicons name="person" size={22} color={theme.colors.primary.DEFAULT} />
 									</View>
 									<Text className="text-center font-medium">
 										Personality Quiz
@@ -149,9 +149,9 @@ export default function Home() {
 								className="flex-1 min-w-[150px]"
 								onPress={() => router.push("/(app)/(protected)/history")}
 							>
-								<Card className="p-4 items-center justify-center h-32">
-									<View className="bg-primary/10 p-3 rounded-full mb-3">
-										<Ionicons name="time" size={24} color={theme.colors.primary.DEFAULT} />
+								<Card className="p-4 items-center justify-center h-28">
+									<View className="bg-primary/10 p-2.5 rounded-full mb-2">
+										<Ionicons name="time" size={22} color={theme.colors.primary.DEFAULT} />
 									</View>
 									<Text className="text-center font-medium">
 										History
@@ -163,9 +163,9 @@ export default function Home() {
 								className="flex-1 min-w-[150px]"
 								onPress={() => router.push("/(app)/(protected)/build-advisor")}
 							>
-								<Card className="p-4 items-center justify-center h-32">
-									<View className="bg-primary/10 p-3 rounded-full mb-3">
-										<Ionicons name="build" size={24} color={theme.colors.primary.DEFAULT} />
+								<Card className="p-4 items-center justify-center h-28">
+									<View className="bg-primary/10 p-2.5 rounded-full mb-2">
+										<Ionicons name="build" size={22} color={theme.colors.primary.DEFAULT} />
 									</View>
 									<Text className="text-center font-medium">
 										Build Advisor
@@ -176,7 +176,7 @@ export default function Home() {
 					</View>
 
 					{/* Recent Decisions */}
-					<View>
+					<View className="mt-4">
 						<H2 className="text-xl font-semibold mb-4">
 							Recent Decisions
 						</H2>
@@ -204,20 +204,20 @@ export default function Home() {
 										key={decision.id}
 										onPress={() => router.push(`/(app)/(protected)/decision/${decision.id}`)}
 									>
-										<Card className="p-4">
-											<View className="space-y-2 flex-row items-center">
-												<View className="w-8 h-8 bg-primary/10 rounded-full items-center justify-center mr-3">
-													<Ionicons name="help-buoy-outline" size={18} color={theme.colors.primary.DEFAULT} />
+										<Card className="p-3">
+											<View className="flex-row items-center">
+												<View className="w-7 h-7 bg-primary/10 rounded-full items-center justify-center mr-2">
+													<Ionicons name="help-buoy-outline" size={16} color={theme.colors.primary.DEFAULT} />
 												</View>
 												<View className="flex-1">
-													<Text className="font-medium">
+													<Text className="font-medium" numberOfLines={1}>
 														{decision.summary || decision.title}
 													</Text>
-													<Muted>
+													<Muted className="text-xs">
 														Last updated: {formatDate(decision.updatedAt)}
 													</Muted>
 												</View>
-												<Ionicons name="chevron-forward" size={20} color={theme.colors.text.muted} />
+												<Ionicons name="chevron-forward" size={18} color={theme.colors.text.muted} />
 											</View>
 										</Card>
 									</TouchableOpacity>
