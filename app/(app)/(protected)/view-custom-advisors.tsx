@@ -1,4 +1,4 @@
-import { View, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions } from "react-native";
+import { View, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions, Platform } from "react-native";
 import { router } from "expo-router";
 import { Text } from "@/components/ui/text";
 import { H1, Muted } from "@/components/ui/typography";
@@ -13,13 +13,16 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Animated, { FadeIn, FadeOut, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { GestureHandlerRootView, PanGestureHandler } from "react-native-gesture-handler";
+import { LinearGradient } from "expo-linear-gradient";
+
+const { width, height } = Dimensions.get("window");
+const isIOS = Platform.OS === 'ios';
 
 export default function ViewCustomAdvisors() {
   const { profile, loading, error, getCustomAdvisors, deleteCustomAdvisor } = useUserProfile();
   const [advisors, setAdvisors] = useState<CustomAdvisor[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [translationX] = useState(useSharedValue(0));
-  const { width } = Dimensions.get('window');
   const panRef = useRef(null);
   
   useEffect(() => {
@@ -110,17 +113,32 @@ export default function ViewCustomAdvisors() {
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator size="large" />
-        <Text className="mt-4">Loading your custom advisors...</Text>
+        <LinearGradient
+          colors={['rgba(139, 92, 246, 0.15)', 'transparent']}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200 }}
+        />
+        <ActivityIndicator size="large" color={theme.colors.primary.DEFAULT} />
+        <Text className="mt-4 text-text">Loading your custom advisors...</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView className="flex-1 bg-background">
-      <View className="p-6 space-y-6">
+    <ScrollView 
+      className="flex-1 bg-background"
+      contentContainerStyle={{ paddingBottom: 80, paddingTop: isIOS ? 100 : 60 }}
+    >
+      <LinearGradient
+        colors={['rgba(139, 92, 246, 0.15)', 'transparent']}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200 }}
+      />
+      
+      <View className="px-6 space-y-6 w-full max-w-lg mx-auto">
         <View className="flex-row justify-between items-center">
-          <H1 className="text-2xl font-bold">Your Custom Advisors</H1>
+          <View>
+            <H1 className="text-2xl font-bold text-text">Your Custom Advisors</H1>
+            <Muted>Browse your created advisors</Muted>
+          </View>
           <Button
             variant="ghost"
             size="icon"

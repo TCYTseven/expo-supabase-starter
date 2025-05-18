@@ -1,4 +1,4 @@
-import { View, ScrollView, ActivityIndicator } from "react-native";
+import { View, ScrollView, ActivityIndicator, Platform, Dimensions, TouchableOpacity } from "react-native";
 import { router } from "expo-router";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
@@ -6,6 +6,11 @@ import { H1, H2, Muted } from "@/components/ui/typography";
 import { Card } from "@/components/ui/card";
 import { useState } from "react";
 import { useUserProfile } from "@/lib/hooks/useUserProfile";
+import { LinearGradient } from "expo-linear-gradient";
+import { theme } from "@/lib/theme";
+
+const { width, height } = Dimensions.get("window");
+const isIOS = Platform.OS === 'ios';
 
 const questions = [
   {
@@ -104,49 +109,69 @@ export default function PersonalityQuiz() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-background">
-      <View className="p-6 space-y-6">
+    <ScrollView 
+      className="flex-1 bg-background"
+      contentContainerStyle={{ paddingBottom: 80, paddingTop: isIOS ? 100 : 60 }}
+    >
+      <LinearGradient
+        colors={['rgba(139, 92, 246, 0.15)', 'transparent']}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200 }}
+      />
+      
+      <View className="px-6 space-y-6 w-full max-w-lg mx-auto">
         <View className="flex-row justify-between items-center">
-          <H1 className="text-2xl font-bold">Personality Quiz</H1>
-          <Button
-            variant="ghost"
-            size="icon"
-            onPress={() => router.back()}
-          >
-            <Text>✕</Text>
-          </Button>
+          <View>
+            <H1 className="text-2xl font-bold text-text">Personality Quiz</H1>
+            <Muted>Discover your decision style</Muted>
+          </View>
         </View>
 
         <View className="space-y-4">
-          <Card className="p-4">
-            <View className="space-y-4">
+          <Card className="bg-background-card border-none shadow-md overflow-hidden">
+            <LinearGradient
+              colors={['rgba(139, 92, 246, 0.1)', 'transparent']}
+              style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4 }}
+            />
+            <View className="p-5 space-y-4">
               <View className="flex-row justify-between">
-                <Muted>Question {currentQuestion + 1} of {questions.length}</Muted>
-                <Muted>{Math.round(((currentQuestion + 1) / questions.length) * 100)}%</Muted>
+                <View className="bg-primary/10 px-3 py-1 rounded-full">
+                  <Text className="text-primary text-xs font-medium">Question {currentQuestion + 1} of {questions.length}</Text>
+                </View>
+                <View className="bg-primary/10 px-3 py-1 rounded-full">
+                  <Text className="text-primary text-xs font-medium">{Math.round(((currentQuestion + 1) / questions.length) * 100)}%</Text>
+                </View>
               </View>
               
-              <H2 className="text-xl font-semibold">
+              <H2 className="text-xl font-semibold text-text">
                 {questions[currentQuestion].question}
               </H2>
 
-              <View className="space-y-3">
+              <View className="space-y-3 mt-2">
                 {questions[currentQuestion].options.map((option, index) => (
-                  <Button
+                  <TouchableOpacity
                     key={index}
-                    variant="outline"
-                    className="w-full"
+                    className="w-full border-2 border-primary/30 rounded-xl p-4 bg-background-input active:opacity-80"
                     onPress={() => handleAnswer(option.value)}
                     disabled={saving}
+                    activeOpacity={0.8}
                   >
-                    <Text className="text-left">{option.text}</Text>
-                  </Button>
+                    <View className="flex-row items-center">
+                      <View className="w-8 h-8 rounded-full bg-primary/20 items-center justify-center mr-3">
+                        <Text className="text-primary font-semibold">{index + 1}</Text>
+                      </View>
+                      <Text className="flex-1 text-text font-medium">{option.text}</Text>
+                    </View>
+                  </TouchableOpacity>
                 ))}
               </View>
               
               {saving && (
-                <View className="items-center py-2">
-                  <ActivityIndicator size="small" />
-                  <Muted className="mt-2">Saving your results...</Muted>
+                <View className="items-center py-4 mt-2">
+                  <View className="bg-primary/20 p-4 rounded-full mb-3">
+                    <ActivityIndicator size="small" color={theme.colors.primary.DEFAULT} />
+                  </View>
+                  <Text className="text-text text-center font-medium">Processing your results...</Text>
+                  <Muted className="text-center">Creating your personalized profile</Muted>
                 </View>
               )}
             </View>

@@ -1,4 +1,4 @@
-import { View, ScrollView, TouchableOpacity, TextInput, FlatList, Animated } from "react-native";
+import { View, ScrollView, TouchableOpacity, TextInput, FlatList, Animated, Platform, Dimensions } from "react-native";
 import { router } from "expo-router";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
@@ -11,6 +11,10 @@ import { PanGestureHandler, State, GestureHandlerRootView } from 'react-native-g
 import { useUserProfile } from "@/lib/hooks/useUserProfile";
 import { useSupabase } from "@/context/supabase-provider";
 import { createCustomAdvisor, getAdvisorPrompt } from "@/lib/advisorService";
+import { LinearGradient } from "expo-linear-gradient";
+
+const { width, height } = Dimensions.get("window");
+const isIOS = Platform.OS === 'ios';
 
 type AdvisorTrait = {
   label: string;
@@ -69,7 +73,6 @@ export default function BuildAdvisor() {
     advisorName: "",
     background: "",
     expertise: "",
-    tone: "",
   });
   
   const [errors, setErrors] = useState({
@@ -158,7 +161,6 @@ export default function BuildAdvisor() {
         sliders,
         background: freeForm.background,
         expertise: freeForm.expertise,
-        tone: freeForm.tone
       };
       
       // Use the advisor service to generate the prompt
@@ -314,7 +316,6 @@ export default function BuildAdvisor() {
             {renderSlider("Directness", "directness", "Gentle", "Direct", directnessAnim)}
             {renderSlider("Optimism", "optimism", "Realistic", "Optimistic", optimismAnim)}
             {renderSlider("Approach", "creativity", "Conventional", "Creative", creativityAnim)}
-            {renderSlider("Focus", "detail", "Big Picture", "Detail-oriented", detailAnim)}
           </View>
         );
         
@@ -327,8 +328,9 @@ export default function BuildAdvisor() {
                 <Text className="text-red-500"> *</Text>
               </View>
               <TextInput
-                className={`border rounded-lg p-3 ${errors.advisorName ? 'border-red-500' : 'border-border'}`}
+                className={`border rounded-lg p-3 ${errors.advisorName ? 'border-red-500' : 'border-border'} text-text`}
                 placeholder="Give your advisor a name"
+                placeholderTextColor={theme.colors.text.muted}
                 value={freeForm.advisorName}
                 onChangeText={(text) => {
                   setFreeForm({...freeForm, advisorName: text});
@@ -345,8 +347,9 @@ export default function BuildAdvisor() {
             <View className="space-y-2">
               <Text className="font-medium">Background (optional)</Text>
               <TextInput
-                className="border border-border rounded-lg p-3"
+                className="border border-border rounded-lg p-3 text-text"
                 placeholder="What kind of background should your advisor have?"
+                placeholderTextColor={theme.colors.text.muted}
                 value={freeForm.background}
                 onChangeText={(text) => setFreeForm({...freeForm, background: text})}
                 multiline
@@ -357,22 +360,11 @@ export default function BuildAdvisor() {
             <View className="space-y-2">
               <Text className="font-medium">Areas of Expertise (optional)</Text>
               <TextInput
-                className="border border-border rounded-lg p-3"
+                className="border border-border rounded-lg p-3 text-text"
                 placeholder="Any specific areas of expertise?"
+                placeholderTextColor={theme.colors.text.muted}
                 value={freeForm.expertise}
                 onChangeText={(text) => setFreeForm({...freeForm, expertise: text})}
-                multiline
-                numberOfLines={3}
-              />
-            </View>
-            
-            <View className="space-y-2">
-              <Text className="font-medium">Tone and Voice (optional)</Text>
-              <TextInput
-                className="border border-border rounded-lg p-3"
-                placeholder="How should your advisor speak to you?"
-                value={freeForm.tone}
-                onChangeText={(text) => setFreeForm({...freeForm, tone: text})}
                 multiline
                 numberOfLines={3}
               />
@@ -395,16 +387,16 @@ export default function BuildAdvisor() {
               <Muted className="text-center">This advisor will be tailored to your preferences</Muted>
             </View>
             
-            {/* Generated prompt preview */}
+            {/* Generated prompt preview - make sure it doesn't overflow */}
             {generatedPrompt && (
               <View className="bg-primary/10 rounded-lg p-4 my-4">
                 <Text className="font-medium mb-2">AI-Generated Prompt:</Text>
-                <Text className="italic">{generatedPrompt}</Text>
+                <Text className="italic" numberOfLines={6} ellipsizeMode="tail">{generatedPrompt}</Text>
                 <Muted className="text-xs mt-2">This prompt will be used when you ask for advice</Muted>
               </View>
             )}
             
-            <View className="space-y-2 mt-4">
+            <View className="space-y-2 mt-4 pb-4">
               <Text className="font-medium">Communication Style</Text>
               <View className="flex-row flex-wrap">
                 {selectedCommunicationTraits.length > 0 ? 
@@ -445,13 +437,6 @@ export default function BuildAdvisor() {
                 <Muted>{freeForm.expertise}</Muted>
               </View>
             ) : null}
-            
-            {freeForm.tone ? (
-              <View className="space-y-2">
-                <Text className="font-medium">Tone</Text>
-                <Muted>{freeForm.tone}</Muted>
-              </View>
-            ) : null}
           </View>
         );
     }
@@ -467,7 +452,6 @@ export default function BuildAdvisor() {
         sliders,
         background: freeForm.background,
         expertise: freeForm.expertise,
-        tone: freeForm.tone
       };
       
       // Try to generate a preview prompt
@@ -487,10 +471,22 @@ export default function BuildAdvisor() {
 
   return (
     <View className="flex-1 bg-background">
-      <ScrollView ref={scrollViewRef} className="flex-1">
-        <View className="p-6 space-y-6">
+      <ScrollView 
+        ref={scrollViewRef} 
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 120, paddingTop: isIOS ? 100 : 60 }}
+      >
+        <LinearGradient
+          colors={['rgba(139, 92, 246, 0.15)', 'transparent']}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200 }}
+        />
+        
+        <View className="px-6 space-y-6 w-full max-w-lg mx-auto">
           <View className="flex-row justify-between items-center">
-            <H1 className="text-2xl font-bold">Build Your Advisor</H1>
+            <View>
+              <H1 className="text-2xl font-bold text-text">Build Your Advisor</H1>
+              <Muted>Create your perfect advisor</Muted>
+            </View>
             <Button
               variant="ghost"
               size="icon"

@@ -1,4 +1,4 @@
-import { View, ScrollView, ActivityIndicator, TouchableOpacity } from "react-native";
+import { View, ScrollView, ActivityIndicator, TouchableOpacity, Platform, Dimensions } from "react-native";
 import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
@@ -10,6 +10,10 @@ import { getAdvisorPrompt } from "@/lib/advisorService";
 import { supabase } from "@/config/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import { theme } from "@/lib/theme";
+import { LinearGradient } from "expo-linear-gradient";
+
+const { width, height } = Dimensions.get("window");
+const isIOS = Platform.OS === 'ios';
 
 const personalityTypes = {
   "INTJ": {
@@ -91,11 +95,24 @@ export default function PersonalityResult() {
   const [expandedAdvisor, setExpandedAdvisor] = useState<string | null>(null);
   const [loadingAdvisors, setLoadingAdvisors] = useState(false);
   
-  // Use the passed type or fall back to the stored profile type
-  const personalityType = type || (profile?.personality_type !== "Not Set" ? profile?.personality_type : "INTJ");
+  // Consider any non-empty, non-"Not Set", non-"NONE" value as a valid personality type
+  const hasPersonalityType = profile?.personality_type && 
+                             profile.personality_type !== "NONE" && 
+                             profile.personality_type !== "Not Set";
   
-  // Get type information, fallback to INTJ if type not found
-  const typeInfo = personalityTypes[personalityType as keyof typeof personalityTypes] || personalityTypes.INTJ;
+  // Use the passed type or fall back to the stored profile type
+  const personalityType = type || (hasPersonalityType ? profile?.personality_type : null);
+  
+  // Get type information if available, or create a generic one if the type is valid but not in our predefined list
+  const typeInfo = personalityType ? 
+    (personalityTypes[personalityType as keyof typeof personalityTypes] || 
+      // Fallback for valid personality types not in our list
+      {
+        name: "Your Type",
+        description: "This personality type influences how you approach decisions and process information.",
+        adviceStyle: "Balanced and personalized to your preferences"
+      }
+    ) : null;
   
   // Refresh data when screen is focused, but only if needed
   useFocusEffect(
@@ -259,8 +276,12 @@ export default function PersonalityResult() {
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator size="large" />
-        <Text className="mt-4">Loading profile...</Text>
+        <LinearGradient
+          colors={['rgba(139, 92, 246, 0.15)', 'transparent']}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200 }}
+        />
+        <ActivityIndicator size="large" color={theme.colors.primary.DEFAULT} />
+        <Text className="mt-4 text-text">Loading profile...</Text>
       </View>
     );
   }
@@ -272,40 +293,61 @@ export default function PersonalityResult() {
   ];
 
   return (
-    <ScrollView className="flex-1 bg-background">
-      <View className="p-6 space-y-6">
-        <View className="flex-row justify-between items-center">
-          <H1 className="text-2xl font-bold">Choose Your Advisor</H1>
-          <Button
-            variant="ghost"
-            size="icon"
-            onPress={() => router.back()}
-          >
-            <Text>✕</Text>
-          </Button>
+    <ScrollView 
+      className="flex-1 bg-background"
+      contentContainerStyle={{ paddingBottom: 80, paddingTop: isIOS ? 100 : 60 }}
+    >
+      <LinearGradient
+        colors={['rgba(139, 92, 246, 0.15)', 'transparent']}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200 }}
+      />
+      
+      <View className="px-6 space-y-6 w-full max-w-lg mx-auto">
+        <View className="items-start">
+          <H1 className="text-2xl font-bold text-text">Choose Your Advisor</H1>
+          <Muted>Select your perfect decision guide</Muted>
         </View>
 
         <Card className="p-6">
           <View className="space-y-4">
             <View className="items-center">
-              <Text className="text-4xl font-bold mb-2">{personalityType}</Text>
-              <H2 className="text-xl text-center">{typeInfo.name}</H2>
+              <Text className="text-4xl font-bold mb-2">{personalityType || "NONE"}</Text>
+              {typeInfo ? (
+                <H2 className="text-xl text-center">{typeInfo.name}</H2>
+              ) : (
+                <H2 className="text-xl text-center text-muted">No personality type set</H2>
+              )}
             </View>
 
-            <View className="space-y-2">
-              <Text className="font-medium">Description</Text>
-              <Muted>{typeInfo.description}</Muted>
-            </View>
+            {typeInfo ? (
+              <>
+                <View className="space-y-2">
+                  <Text className="font-medium">Description</Text>
+                  <Muted>{typeInfo.description}</Muted>
+                </View>
 
-            <View className="space-y-2">
-              <Text className="font-medium">Advice Style</Text>
-              <Muted>{typeInfo.adviceStyle}</Muted>
-            </View>
+                <View className="space-y-2">
+                  <Text className="font-medium">Advice Style</Text>
+                  <Muted>{typeInfo.adviceStyle}</Muted>
+                </View>
+              </>
+            ) : (
+              <View className="space-y-2">
+                <Text className="font-medium">Take the Personality Quiz</Text>
+                <Muted>Your personality type will help tailor advice to your decision-making style.</Muted>
+                <Button 
+                  className="mt-4" 
+                  onPress={() => router.push("/(app)/(protected)/personality")}
+                >
+                  <Text>Take Personality Quiz</Text>
+                </Button>
+              </View>
+            )}
           </View>
         </Card>
 
         <View className="space-y-4">
-          <H2 className="text-xl font-semibold">Choose Your Advisor</H2>
+          <H2 className="text-xl font-semibold">Available Advisors</H2>
           <Card className="p-4">
             <View className="space-y-4">
               <Text className="font-medium">Select a personality to guide your decisions:</Text>
@@ -402,8 +444,6 @@ export default function PersonalityResult() {
             </View>
           </Card>
         </View>
-        {/* Add extra padding at the bottom to ensure content isn't covered by navbar */}
-        <View style={{ height: 80 }} />
       </View>
     </ScrollView>
   );
