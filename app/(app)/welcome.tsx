@@ -1,13 +1,42 @@
-import { View, ScrollView, TouchableOpacity, StyleSheet, Text as RNText, Platform } from "react-native";
+import { View, ScrollView, TouchableOpacity, StyleSheet, Text as RNText, Platform, Animated, Easing } from "react-native";
 import { router } from "expo-router";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { H1, Muted } from "@/components/ui/typography";
 import { theme } from "@/lib/theme";
-import { useMemo } from "react";
+import { useMemo, useRef, useEffect } from "react";
+import { LinearGradient } from "expo-linear-gradient";
 
 // Custom background pattern component
 const BackgroundPattern = () => {
+	const fadeAnim = useRef(new Animated.Value(0)).current;
+	const moveAnim = useRef(new Animated.Value(0)).current;
+	
+	useEffect(() => {
+		// Continuous smooth fade animation using infinite loop
+		Animated.loop(
+			Animated.timing(fadeAnim, {
+				toValue: 1,
+				duration: 3600,
+				easing: Easing.inOut(Easing.sin),
+				useNativeDriver: true,
+			}), 
+			{ iterations: -1 } // Infinite iterations
+		).start();
+		
+		// Continuous smooth movement animation using infinite loop
+		Animated.loop(
+			Animated.timing(moveAnim, {
+				toValue: 1,
+				duration: 6000,
+				easing: Easing.inOut(Easing.sin),
+				useNativeDriver: true,
+			}),
+			{ iterations: -1 } // Infinite iterations
+		).start();
+		
+	}, [fadeAnim, moveAnim]);
+	
 	const dots = [];
 	const rows = 20;
 	const cols = 12;
@@ -15,16 +44,27 @@ const BackgroundPattern = () => {
 	for (let i = 0; i < rows * cols; i++) {
 		const row = Math.floor(i / cols);
 		const col = i % cols;
+		const isEven = (row + col) % 2 === 0;
+		const offset = ((row * col) % 10) / 10; // Phase offset for staggered animation
 		
 		dots.push(
-			<View 
+			<Animated.View 
 				key={i}
 				style={[
 					styles.dot,
 					{
 						top: row * 40,
 						left: col * 40,
-						opacity: Math.random() * 0.5 + 0.1,
+						opacity: fadeAnim.interpolate({
+							inputRange: [0, 0.5, 1],
+							outputRange: [0.05, isEven ? 0.6 : 0.8, 0.05], // Create a full sine wave pattern
+						}),
+						transform: [{ 
+							translateY: moveAnim.interpolate({
+								inputRange: [0, 0.5, 1],
+								outputRange: [0, isEven ? 12 : -12, 0], // Create a full sine wave pattern
+							})
+						}]
 					}
 				]}
 			/>
@@ -36,10 +76,49 @@ const BackgroundPattern = () => {
 
 // Multiple Choice Illustration
 const IllustrationBox = () => {
+	const animValue = useRef(new Animated.Value(0)).current;
+	
+	useEffect(() => {
+		// Single continuous animation using infinite loop
+		Animated.loop(
+			Animated.timing(animValue, {
+				toValue: 1,
+				duration: 3000, 
+				easing: Easing.inOut(Easing.sin),
+				useNativeDriver: true,
+			}),
+			{ iterations: -1 } // Infinite iterations
+		).start();
+	}, [animValue]);
+	
+	// Use interpolation to create different effects from a single animation value
+	const scale = animValue.interpolate({
+		inputRange: [0, 0.5, 1],
+		outputRange: [1, 1.08, 1], // Full cycle for smooth loop
+	});
+	
+	const rotation = animValue.interpolate({
+		inputRange: [0, 0.5, 1],
+		outputRange: ['0deg', '1deg', '0deg'], // Full cycle for smooth loop
+	});
+	
 	return (
 		<View style={styles.illustrationContainer}>
-			{/* Main Card */}
-			<View style={styles.card}>
+			{/* Main Card with animation */}
+			<Animated.View style={[
+				styles.card,
+				{
+					transform: [
+						{ scale: scale },
+						{ rotate: rotation }
+					],
+					shadowColor: "#000",
+					shadowOffset: { width: 0, height: 8 },
+					shadowOpacity: 0.4,
+					shadowRadius: 16,
+					elevation: 10,
+				}
+			]}>
 				<View style={styles.cardRow}>
 					<View style={styles.checkbox}>
 						<View style={styles.checkmark} />
@@ -63,7 +142,7 @@ const IllustrationBox = () => {
 						<View style={styles.cardTextLineShort} />
 					</View>
 				</View>
-			</View>
+			</Animated.View>
 			
 			{/* Character */}
 			<View style={styles.characterContainer}>
@@ -75,18 +154,64 @@ const IllustrationBox = () => {
 };
 
 export default function Welcome() {
+	const mainAnim = useRef(new Animated.Value(0)).current;
+	
+	useEffect(() => {
+		// Single continuous animation for all effects using infinite loop
+		Animated.loop(
+			Animated.timing(mainAnim, {
+				toValue: 1,
+				duration: 8000,
+				easing: Easing.inOut(Easing.sin),
+				useNativeDriver: false, // Required for some interpolations
+			}),
+			{ iterations: -1 } // Infinite iterations
+		).start();
+	}, [mainAnim]);
+	
+	// Create separate interpolations for different effects from a single animation
+	const gradientOpacity = mainAnim.interpolate({
+		inputRange: [0, 0.5, 1],
+		outputRange: [0.3, 0.7, 0.3], // Full cycle for smooth loop
+	});
+	
+	const contentTranslateY = mainAnim.interpolate({
+		inputRange: [0, 0.5, 1],
+		outputRange: [0, -8, 0], // Full cycle for smooth loop
+	});
+	
 	return (
 		<View style={styles.container}>
 			<BackgroundPattern />
+			<Animated.View 
+				style={{ 
+					position: 'absolute', 
+					top: 0, 
+					left: 0, 
+					right: 0, 
+					height: 300,
+					opacity: gradientOpacity
+				}}
+			>
+				<LinearGradient
+					colors={['rgba(139, 92, 246, 1)', 'transparent']}
+					style={{ width: '100%', height: '100%' }}
+				/>
+			</Animated.View>
 			<View style={styles.overlay}>
 				<ScrollView contentContainerStyle={styles.scrollContainer}>
-					<View style={styles.content}>
+					<Animated.View 
+						style={[
+							styles.content,
+							{ transform: [{ translateY: contentTranslateY }] }
+						]}
+					>
 						<View style={styles.spacer} />
 						
 						<View style={styles.mainContent}>
 							<View style={styles.logoContainer}>
-								<View style={styles.titleWrapper}>
-									<H1 style={styles.title}>Smart8Ball</H1>
+								<View style={[styles.titleWrapper, { marginTop: 20 }]}>
+									<H1 style={[styles.title, { marginTop: 20 }]}>smart 8 ball</H1>
 								</View>
 								<Muted style={styles.subtitle}>
 									Your AI-powered decision-making companion
@@ -98,9 +223,9 @@ export default function Welcome() {
 							</View>
 
 							<View style={styles.infoContainer}>
-								<Text style={styles.infoTitle}>Get started</Text>
+								<Text style={styles.infoTitle}>Start smarter.</Text>
 								<Text style={styles.infoText}>
-									Make smarter decisions with AI-powered guidance and personalized insights
+									Get personalized insights and guidance to make confident decisions.
 								</Text>
 							</View>
 						</View>
@@ -120,7 +245,7 @@ export default function Welcome() {
 								</TouchableOpacity>
 							</View>
 						</View>
-					</View>
+					</Animated.View>
 				</ScrollView>
 			</View>
 		</View>
@@ -130,7 +255,7 @@ export default function Welcome() {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		backgroundColor: theme.colors.background.DEFAULT,
+		backgroundColor: '#08101E',
 	},
 	patternContainer: {
 		position: 'absolute',
@@ -147,7 +272,7 @@ const styles = StyleSheet.create({
 	},
 	overlay: {
 		flex: 1,
-		backgroundColor: 'rgba(15, 23, 42, 0.7)',
+		backgroundColor: 'rgba(8, 16, 30, 0.8)',
 	},
 	scrollContainer: {
 		flexGrow: 1,
@@ -175,12 +300,17 @@ const styles = StyleSheet.create({
 		paddingVertical: 10,
 	},
 	title: {
-		fontSize: 38,
-		fontWeight: 'bold',
+		fontSize: 33,
+		fontWeight: '800',
 		color: theme.colors.text.DEFAULT,
 		textAlign: 'center',
 		includeFontPadding: true,
 		textAlignVertical: 'center',
+		letterSpacing: 0.5,
+		textShadowColor: 'rgba(0, 0, 0, 0.3)',
+		textShadowOffset: { width: 0, height: 2 },
+		textShadowRadius: 4,
+		transform: [{ translateY: 5 }],
 	},
 	subtitle: {
 		fontSize: 16,
@@ -209,10 +339,10 @@ const styles = StyleSheet.create({
 		borderWidth: 1,
 		borderColor: 'rgba(255, 255, 255, 0.2)',
 		shadowColor: "#000",
-		shadowOffset: { width: 0, height: 4 },
-		shadowOpacity: 0.2,
-		shadowRadius: 8,
-		elevation: 5,
+		shadowOffset: { width: 0, height: 8 },
+		shadowOpacity: 0.35,
+		shadowRadius: 16,
+		elevation: 10,
 	},
 	cardRow: {
 		flexDirection: 'row',
@@ -276,7 +406,7 @@ const styles = StyleSheet.create({
 		marginTop: 20,
 	},
 	infoTitle: {
-		fontSize: 20,
+		fontSize: 22,
 		fontWeight: 'bold',
 		color: theme.colors.text.DEFAULT,
 		marginBottom: 8,
@@ -320,6 +450,6 @@ const styles = StyleSheet.create({
 	loginLink: {
 		color: theme.colors.primary.light,
 		fontSize: 14,
-		fontWeight: 'bold',
+		fontWeight: '500',
 	},
 });
