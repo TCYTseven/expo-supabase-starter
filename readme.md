@@ -13,14 +13,6 @@ Smart8Ball is an AI-powered decision-making application that helps users make in
 - 📊 Decision history tracking
 - 🎯 Custom advisor profiles
 
-## Table of Contents
-
-- [💡 Getting Started](docs/getting-started.md)
-- [⚙️ Configuration](docs/configuration.md)
-- [🌳 Decision Trees](docs/decision-trees.md)
-- [🤖 AI Integration](docs/ai-integration.md)
-- [👤 User Profiles](docs/user-profiles.md)
-
 ## Contributing
 
 We welcome contributions to Smart8Ball! Whether you're interested in improving the AI decision-making algorithms, enhancing the user interface, or adding new features, your input is valuable. Please feel free to create an issue or submit a pull request to help make Smart8Ball even better.
