@@ -1,4 +1,4 @@
-import { View, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Dimensions } from "react-native";
 import { router } from "expo-router";
 import { Text } from "@/components/ui/text";
 import { H1, H2, Muted } from "@/components/ui/typography";
@@ -8,6 +8,10 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useState, useEffect } from "react";
 import { useSupabase } from "@/context/supabase-provider";
 import { getUserDecisionTrees, summarizeDecisionTree } from "@/lib/decisionAIService";
+import { LinearGradient } from "expo-linear-gradient";
+
+const { width, height } = Dimensions.get("window");
+const isIOS = Platform.OS === 'ios';
 
 export default function Home() {
 	const [isLoading, setIsLoading] = useState(true);
@@ -80,16 +84,20 @@ export default function Home() {
 	};
 
 	return (
-		<View className="flex-1" style={{ backgroundColor: theme.colors.background.DEFAULT }}>
+		<View className="flex-1 bg-background">
 			<ScrollView 
 				className="flex-1" 
-				style={{ paddingTop: theme.spacing.safeTop }}
-				contentContainerStyle={{ paddingBottom: 100 }} // Space for bottom nav
+				contentContainerStyle={{ paddingBottom: 80, paddingTop: isIOS ? 100 : 60 }}
 			>
-				<View className="p-6 space-y-8">
+				<LinearGradient
+					colors={['rgba(139, 92, 246, 0.15)', 'transparent']}
+					style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200 }}
+				/>
+				
+				<View className="px-6 space-y-6 w-full max-w-lg mx-auto">
 					<View className="flex-row justify-between items-center">
 						<View>
-							<H1 className="text-2xl font-bold">
+							<H1 className="text-2xl font-bold text-text">
 								Smart8Ball
 							</H1>
 							<Muted>

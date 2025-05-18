@@ -1,4 +1,4 @@
-import { View, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Dimensions } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { Text } from "@/components/ui/text";
 import { H1, Muted } from "@/components/ui/typography";
@@ -8,6 +8,10 @@ import { theme } from "@/lib/theme";
 import { useSupabase } from "@/context/supabase-provider";
 import { useUserProfile } from "@/lib/hooks/useUserProfile";
 import { getAdvisorPrompt } from "@/lib/advisorService";
+import { LinearGradient } from "expo-linear-gradient";
+
+const { width, height } = Dimensions.get("window");
+const isIOS = Platform.OS === 'ios';
 
 // Advisor display names mapping
 const advisorNames = {
@@ -142,10 +146,21 @@ export default function Settings() {
 		profile.custom_advisors !== "Not Set";
 
 	return (
-		<ScrollView className="flex-1 bg-background">
-			<View className="p-6 space-y-8">
+		<ScrollView 
+			className="flex-1 bg-background"
+			contentContainerStyle={{ paddingBottom: 80, paddingTop: isIOS ? 100 : 60 }}
+		>
+			<LinearGradient
+				colors={['rgba(139, 92, 246, 0.15)', 'transparent']}
+				style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200 }}
+			/>
+			
+			<View className="px-6 space-y-6 w-full max-w-lg mx-auto">
 				<View className="flex-row justify-between items-center">
-					<H1 className="text-2xl font-bold">Settings</H1>
+					<View>
+						<H1 className="text-2xl font-bold text-text">Settings</H1>
+						<Muted>Configure your experience</Muted>
+					</View>
 				</View>
 
 				{/* Advisor & Personality Section */}
@@ -250,24 +265,6 @@ export default function Settings() {
 							<View>
 								<Text className="font-medium">Account Settings</Text>
 								<Muted>Manage your profile and subscription</Muted>
-							</View>
-						</View>
-						<Ionicons name="chevron-forward" size={20} color={theme.colors.text.muted} />
-					</TouchableOpacity>
-
-					{renderDivider()}
-
-					<TouchableOpacity 
-						className="flex-row items-center justify-between py-3"
-						onPress={() => {/* Handle data privacy */}}
-					>
-						<View className="flex-row items-center">
-							<View className="w-10 h-10 bg-primary/10 rounded-full items-center justify-center mr-4">
-								<Ionicons name="lock-closed" size={20} color={theme.colors.primary.DEFAULT} />
-							</View>
-							<View>
-								<Text className="font-medium">Privacy & Data</Text>
-								<Muted>Manage your data and privacy settings</Muted>
 							</View>
 						</View>
 						<Ionicons name="chevron-forward" size={20} color={theme.colors.text.muted} />

@@ -85,7 +85,7 @@ export default function Decide() {
   const handlePickDocument = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['text/*', 'application/pdf'],
+        type: ['text/*', 'application/pdf', 'image/*'],
         copyToCacheDirectory: true
       });
       
@@ -97,17 +97,21 @@ export default function Decide() {
       
       // Read file content for text files
       try {
-        const content = await FileSystem.readAsStringAsync(asset.uri);
-        
-        // For PDF files, we'd need a library to extract text
-        // For simplicity, we're just setting the filename for PDFs
-        if (asset.mimeType === 'application/pdf') {
+        // Handle different file types
+        if (asset.mimeType?.startsWith('image/')) {
+          setAttachedFile({
+            name: asset.name,
+            content: `Image attached: ${asset.name}`
+          });
+        } else if (asset.mimeType === 'application/pdf') {
           setAttachedFile({
             name: asset.name,
             content: `PDF file attached: ${asset.name}`
           });
         } else {
-          // For text files, use the content
+          // For text files, read the content
+          const content = await FileSystem.readAsStringAsync(asset.uri);
+          
           setAttachedFile({
             name: asset.name,
             content
@@ -307,7 +311,7 @@ export default function Decide() {
     return (
       <ScrollView 
         className="flex-1 bg-background"
-        contentContainerStyle={{ paddingBottom: 100, paddingTop: isIOS ? 130 : 80 }}
+        contentContainerStyle={{ paddingBottom: 100, paddingTop: isIOS ? 100 : 60 }}
       >
         <LinearGradient
           colors={['rgba(139, 92, 246, 0.15)', 'transparent']}
@@ -421,8 +425,8 @@ export default function Decide() {
 
   return (
     <ScrollView 
-      className="flex-1 bg-background" 
-      contentContainerStyle={{ paddingBottom: 100, paddingTop: isIOS ? 130 : 80 }}
+      className="flex-1 bg-background"
+      contentContainerStyle={{ paddingBottom: 100, paddingTop: isIOS ? 100 : 60 }}
     >
       <LinearGradient
         colors={['rgba(139, 92, 246, 0.15)', 'transparent']}
@@ -431,10 +435,15 @@ export default function Decide() {
       
       <View className="px-6 space-y-8 w-full max-w-lg mx-auto">
         {!decisionTree ? (
-          <View className="items-center mb-4">
-            <H1 className="text-3xl font-bold text-text text-center">
-              New Decision
-            </H1>
+          <View className="flex-row justify-between items-center">
+            <View>
+              <H1 className="text-2xl font-bold text-text">
+                New Decision
+              </H1>
+              <Muted>
+                Make your decision now
+              </Muted>
+            </View>
           </View>
         ) : (
           <View className="flex-row justify-between items-center">
@@ -538,9 +547,9 @@ export default function Decide() {
                   activeOpacity={0.7}
                 >
                   <View className="w-7 h-7 rounded-full bg-primary/20 items-center justify-center mr-2">
-                    <Ionicons name="document-attach" size={14} color={theme.colors.primary.DEFAULT} />
+                    <Ionicons name="document-attach" size={14} color="white" />
                   </View>
-                  <Text className="text-text font-medium text-sm">Upload a file</Text>
+                  <Text className="text-text font-medium text-sm">Upload a file or photo</Text>
                 </TouchableOpacity>
               </View>
 
