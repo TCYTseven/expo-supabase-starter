@@ -528,7 +528,12 @@ export function shouldConcludeDecision(tree: DecisionTree): boolean {
   // Get the number of nodes in the decision path
   const nodeCount = Object.keys(tree.nodes).length;
   
-  // If we've gone through at least 3 steps, consider concluding
+  // Always conclude if we've reached the maximum of 10 nodes
+  if (nodeCount >= 10) {
+    return true;
+  }
+  
+  // If we've gone through at least 3 steps, consider concluding based on context
   if (nodeCount >= 3) {
     // Get the current node
     const currentNode = tree.nodes[tree.currentNodeId];
@@ -547,7 +552,16 @@ export function shouldConcludeDecision(tree: DecisionTree): boolean {
       ).length;
       
       // If more than half the options look like conclusions, suggest concluding
-      return conclusionOptionCount >= Math.ceil(currentNode.options.length / 2);
+      if (conclusionOptionCount >= Math.ceil(currentNode.options.length / 2)) {
+        return true;
+      }
+      
+      // As we get deeper in the tree, increase likelihood of concluding
+      // At 5 nodes, 30% chance; at 7 nodes, 60% chance; at 9 nodes, 90% chance
+      if (nodeCount >= 5) {
+        const conclusionProbability = (nodeCount - 4) * 0.15; // 15% increase per node after 4
+        return Math.random() < conclusionProbability;
+      }
     }
   }
   
