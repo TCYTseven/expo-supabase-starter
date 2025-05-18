@@ -218,30 +218,7 @@ export default function BuildAdvisor() {
 
   // Render a custom draggable slider component
   const renderSlider = (label: string, name: keyof typeof sliders, min: string, max: string, animValue: Animated.Value) => {
-    const sliderWidth = 270; // width of the slider track
-    const thumbWidth = 24;
-    const trackPadding = thumbWidth / 2;
-    const sliderRange = sliderWidth - thumbWidth;
-    
-    const translateX = animValue.interpolate({
-      inputRange: [1, 9],
-      outputRange: [0, sliderRange],
-      extrapolate: 'clamp'
-    });
-    
-    const onGestureEvent = Animated.event(
-      [{ nativeEvent: { translationX: animValue } }],
-      { useNativeDriver: true }
-    );
-    
-    const onHandlerStateChange = (event: any) => {
-      if (event.nativeEvent.state === State.END) {
-        const { translationX } = event.nativeEvent;
-        let newValue = sliders[name] + Math.round(translationX / (sliderRange / 8));
-        newValue = Math.max(1, Math.min(9, newValue));
-        handleSliderChange(name, newValue);
-      }
-    };
+    const sliderWidth = 270;
     
     return (
       <View className="mb-8" key={name}>
@@ -251,49 +228,72 @@ export default function BuildAdvisor() {
           <Text className="text-sm text-gray-500">{max}</Text>
         </View>
         
-        <GestureHandlerRootView style={{ alignItems: 'center' }}>
-          <View className="w-full items-center">
+        {/* Simple slider implementation */}
+        <View className="items-center">
+          {/* Slider track with value indicator */}
+          <View className="relative w-full" style={{ width: sliderWidth }}>
+            {/* Background track */}
+            <View className="h-2 bg-gray-200 rounded-full" />
+            
+            {/* Colored portion of track */}
             <View 
-              className="h-2 bg-gray-200 rounded-full"
-              style={{ width: sliderWidth }}
+              className="h-2 bg-primary rounded-full absolute top-0 left-0" 
+              style={{ 
+                width: `${((sliders[name] - 1) / 8) * 100}%` 
+              }} 
             />
             
-            <PanGestureHandler
-              onGestureEvent={onGestureEvent}
-              onHandlerStateChange={onHandlerStateChange}
-            >
-              <Animated.View
-                style={{
-                  position: 'absolute',
-                  width: thumbWidth,
-                  height: thumbWidth,
-                  borderRadius: thumbWidth / 2,
-                  backgroundColor: theme.colors.primary.DEFAULT,
-                  transform: [{ translateX }],
-                  top: -11,
-                }}
-              />
-            </PanGestureHandler>
-            
-            {/* Value indicators */}
-            <View className="flex-row justify-between w-full mt-4">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(val => (
-                <TouchableOpacity
-                  key={val}
-                  onPress={() => handleSliderChange(name, val)}
-                  style={{ width: sliderWidth / 9 }}
-                  className="items-center"
+            {/* Thumb */}
+            <View 
+              className="absolute top-[-10px] bg-primary rounded-full w-6 h-6"
+              style={{
+                left: `${((sliders[name] - 1) / 8) * 100}%`,
+                marginLeft: -12, // Offset half the width of the thumb
+              }}
+            />
+          </View>
+          
+          {/* Individual value buttons */}
+          <View className="flex-row justify-between w-full mt-4">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(value => (
+              <TouchableOpacity
+                key={value}
+                onPress={() => handleSliderChange(name, value)}
+                className="items-center justify-center"
+                style={{ width: sliderWidth / 9 }}
+              >
+                <View 
+                  className={`w-7 h-7 rounded-full items-center justify-center
+                    ${value === sliders[name] ? 'bg-primary/20' : ''}`}
                 >
                   <Text 
-                    className={val === sliders[name] ? "text-primary font-semibold" : "text-gray-400"}
+                    className={value === sliders[name] 
+                      ? "text-primary font-semibold" 
+                      : "text-gray-400"}
                   >
-                    {val}
+                    {value}
                   </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+                </View>
+              </TouchableOpacity>
+            ))}
           </View>
-        </GestureHandlerRootView>
+          
+          {/* Touch area over the entire slider */}
+          <TouchableOpacity
+            activeOpacity={1}
+            className="absolute top-0 left-0"
+            style={{ width: sliderWidth, height: 40 }}
+            onPress={(event) => {
+              const { locationX } = event.nativeEvent;
+              // Calculate value based on touch position
+              // Map touch position (0 to sliderWidth) to value (1 to 9)
+              const valueRange = 8; // 9-1
+              const touchPercent = Math.max(0, Math.min(1, locationX / sliderWidth));
+              const newValue = Math.round(1 + touchPercent * valueRange);
+              handleSliderChange(name, newValue);
+            }}
+          />
+        </View>
       </View>
     );
   };

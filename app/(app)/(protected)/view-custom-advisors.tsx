@@ -126,7 +126,7 @@ export default function ViewCustomAdvisors() {
   return (
     <ScrollView 
       className="flex-1 bg-background"
-      contentContainerStyle={{ paddingBottom: 80, paddingTop: isIOS ? 100 : 60 }}
+      contentContainerStyle={{ paddingBottom: 120, paddingTop: isIOS ? 100 : 60 }}
     >
       <LinearGradient
         colors={['rgba(139, 92, 246, 0.15)', 'transparent']}
@@ -134,18 +134,9 @@ export default function ViewCustomAdvisors() {
       />
       
       <View className="px-6 space-y-6 w-full max-w-lg mx-auto">
-        <View className="flex-row justify-between items-center">
-          <View>
-            <H1 className="text-2xl font-bold text-text">Your Custom Advisors</H1>
-            <Muted>Browse your created advisors</Muted>
-          </View>
-          <Button
-            variant="ghost"
-            size="icon"
-            onPress={() => router.back()}
-          >
-            <Text>✕</Text>
-          </Button>
+        <View>
+          <H1 className="text-2xl font-bold text-text">Your Custom Advisors</H1>
+          <Muted>Browse your created advisors</Muted>
         </View>
 
         {advisors.length > 0 ? (
@@ -172,7 +163,7 @@ export default function ViewCustomAdvisors() {
                 onEnded={handleGestureEnd}
               >
                 <Animated.View style={cardStyle}>
-                  <Card className="p-6">
+                  <Card className="p-6 mb-6">
                     {currentIndex < advisors.length && (
                       <View className="space-y-4">
                         <View className="items-center">
@@ -250,42 +241,10 @@ export default function ViewCustomAdvisors() {
                       </View>
                     )}
                   </Card>
+                  <View style={{ height: 30 }} />
                 </Animated.View>
               </PanGestureHandler>
             </GestureHandlerRootView>
-            
-            <View className="flex-row justify-between mt-4">
-              <Button
-                variant="outline"
-                disabled={currentIndex === 0}
-                onPress={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
-              >
-                <Ionicons name="chevron-back" size={20} color={
-                  currentIndex === 0 ? theme.colors.text.muted : theme.colors.primary.DEFAULT
-                } />
-                <Text>Previous</Text>
-              </Button>
-              
-              <Button
-                variant="outline"
-                disabled={currentIndex === advisors.length - 1}
-                onPress={() => setCurrentIndex(Math.min(advisors.length - 1, currentIndex + 1))}
-              >
-                <Text>Next</Text>
-                <Ionicons name="chevron-forward" size={20} color={
-                  currentIndex === advisors.length - 1 ? theme.colors.text.muted : theme.colors.primary.DEFAULT
-                } />
-              </Button>
-            </View>
-
-            <View className="flex-row justify-center mt-6">
-              <Button
-                variant="default"
-                onPress={() => router.push("/(app)/(protected)/personality-result" as any)}
-              >
-                <Text>Change Advisor</Text>
-              </Button>
-            </View>
           </>
         ) : (
           <View className="items-center justify-center py-10">
@@ -299,17 +258,6 @@ export default function ViewCustomAdvisors() {
               <Text>Build New Advisor</Text>
             </Button>
           </View>
-        )}
-        
-        {advisors.length > 0 && (
-          <Button 
-            variant="outline"
-            className="mt-2"
-            onPress={() => router.push("/(app)/(protected)/build-advisor" as any)}
-          >
-            <Ionicons name="add-circle-outline" size={20} className="mr-2" color={theme.colors.primary.DEFAULT} />
-            <Text>Create Another Advisor</Text>
-          </Button>
         )}
       </View>
     </ScrollView>

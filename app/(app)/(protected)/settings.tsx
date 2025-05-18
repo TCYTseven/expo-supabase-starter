@@ -176,7 +176,7 @@ export default function Settings() {
 						</View>
 						<View>
 							<Text className="font-medium">Build New Advisor</Text>
-							<Muted>Create a new personalized advisor (cannot edit existing)</Muted>
+							<Muted>Create a new personalized advisor</Muted>
 						</View>
 					</View>
 					<Ionicons name="chevron-forward" size={20} color={theme.colors.text.muted} />
