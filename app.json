@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Smart8Ball",
-    "slug": "Smart8Ball",
-    "scheme": "smart8ball",
+    "name": "ExpoSupabaseStarter",
+    "slug": "ExpoSupabaseStarter",
+    "scheme": "expo-supabase-starter",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -26,7 +26,7 @@
           "image": "./assets/splash-dark.png"
         }
       },
-      "bundleIdentifier": "com.tcytseven.Smart8Ball"
+      "bundleIdentifier": "com.tcytseven.ExpoSupabaseStarter"
     },
     "android": {
       "adaptiveIcon": {
