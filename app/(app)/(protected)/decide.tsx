@@ -1,11 +1,11 @@
-import { View, ScrollView, TextInput, TouchableOpacity, Image, ActivityIndicator } from "react-native";
+import { View, ScrollView, TextInput, TouchableOpacity, Image, ActivityIndicator, Dimensions, Platform } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { H1, H2, Muted } from "@/components/ui/typography";
 import { Card } from "@/components/ui/card";
 import { useState, useEffect } from "react";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useUserProfile } from "@/lib/hooks/useUserProfile";
 import { useSupabase } from "@/context/supabase-provider";
 import { 
@@ -19,6 +19,13 @@ import {
   generateFinalDecision
 } from "@/lib/decisionAIService";
 import { getAdvisorPrompt } from "@/lib/advisorService";
+import { LinearGradient } from "expo-linear-gradient";
+import { theme } from "@/lib/theme";
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+
+const { width, height } = Dimensions.get("window");
+const isIOS = Platform.OS === 'ios';
 
 export default function Decide() {
   const [decision, setDecision] = useState("");
@@ -30,6 +37,7 @@ export default function Decide() {
   const [finalDecision, setFinalDecision] = useState<{ decision: string; reflection: string } | null>(null);
   const [shouldShowFinalScreen, setShouldShowFinalScreen] = useState(false);
   const [isGeneratingFinal, setIsGeneratingFinal] = useState(false);
+  const [attachedFile, setAttachedFile] = useState<{name: string, content: string} | null>(null);
 
   const { profile } = useUserProfile();
   const { user } = useSupabase();
@@ -74,6 +82,52 @@ export default function Decide() {
     }
   };
 
+  const handlePickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['text/*', 'application/pdf'],
+        copyToCacheDirectory: true
+      });
+      
+      if (result.canceled) {
+        return;
+      }
+      
+      const asset = result.assets[0];
+      
+      // Read file content for text files
+      try {
+        const content = await FileSystem.readAsStringAsync(asset.uri);
+        
+        // For PDF files, we'd need a library to extract text
+        // For simplicity, we're just setting the filename for PDFs
+        if (asset.mimeType === 'application/pdf') {
+          setAttachedFile({
+            name: asset.name,
+            content: `PDF file attached: ${asset.name}`
+          });
+        } else {
+          // For text files, use the content
+          setAttachedFile({
+            name: asset.name,
+            content
+          });
+          
+          // If context is empty, add the file content there
+          if (!context.trim()) {
+            setContext(content.substring(0, 1000)); // Limit to 1000 chars
+          }
+        }
+      } catch (error) {
+        console.error('Error reading file:', error);
+        setError('Could not read the selected file');
+      }
+    } catch (err) {
+      console.error('Error picking document:', err);
+      setError('Something went wrong when selecting the file');
+    }
+  };
+
   const handleStartDecision = async () => {
     if (!decision.trim() || !user?.id) return;
     
@@ -105,10 +159,17 @@ export default function Decide() {
         }
       }
 
+      // If there's an attached file, add its content to the context
+      let fullContext = context;
+      if (attachedFile && attachedFile.content) {
+        fullContext += fullContext ? '\n\n' : '';
+        fullContext += `Attached file (${attachedFile.name}):\n${attachedFile.content}`;
+      }
+
       // Generate the decision tree
       const newTree = await generateDecisionTree(
         decision, 
-        context, 
+        fullContext, 
         user.id,
         profile?.personality_type,
         advisorPrompt
@@ -214,6 +275,7 @@ export default function Decide() {
     setError(null);
     setFinalDecision(null);
     setShouldShowFinalScreen(false);
+    setAttachedFile(null);
   };
 
   // Get the current node from the decision tree
@@ -222,9 +284,20 @@ export default function Decide() {
   // Show loading indicator while fetching a specific tree
   if (isLoadingTree) {
     return (
-      <View className="flex-1 bg-[#0e0e12] items-center justify-center">
-        <ActivityIndicator size="large" color="#6e3abd" />
-        <Text className="text-white mt-4">Loading your decision...</Text>
+      <View className="flex-1 bg-background items-center justify-center">
+        <LinearGradient
+          colors={['rgba(139, 92, 246, 0.15)', 'transparent']}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 250 }}
+        />
+        <View className="bg-primary/20 p-5 rounded-full">
+          <ActivityIndicator size="large" color={theme.colors.primary.DEFAULT} />
+        </View>
+        <Text className="text-text mt-6 text-center text-lg font-medium">
+          Loading your decision...
+        </Text>
+        <Text className="text-muted mt-2 text-center max-w-[80%]">
+          We're preparing your decision tree with all its branches
+        </Text>
       </View>
     );
   }
@@ -232,79 +305,114 @@ export default function Decide() {
   // Final decision screen
   if (shouldShowFinalScreen && finalDecision && decisionTree) {
     return (
-      <ScrollView className="flex-1 bg-[#0e0e12]">
-        <View className="p-6 space-y-6">
+      <ScrollView 
+        className="flex-1 bg-background"
+        contentContainerStyle={{ paddingBottom: 100, paddingTop: isIOS ? 130 : 80 }}
+      >
+        <LinearGradient
+          colors={['rgba(139, 92, 246, 0.15)', 'transparent']}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 250 }}
+        />
+        
+        <View className="px-6 space-y-8 w-full max-w-lg mx-auto">
           <View className="flex-row justify-between items-center">
-            <H1 className="text-2xl font-bold text-white">Final Decision</H1>
+            <View>
+              <H1 className="text-2xl font-bold text-text">
+                Decision
+              </H1>
+              <Muted>
+                Your final recommendation
+              </Muted>
+            </View>
+            
             <Button
               variant="ghost"
               size="icon"
+              className="rounded-full bg-primary/10"
               onPress={handleNewDecision}
             >
-              <Ionicons name="add-outline" size={24} color="white" />
+              <Ionicons name="add-outline" size={24} color={theme.colors.primary.DEFAULT} />
             </Button>
           </View>
           
-          <Card className="p-4 bg-[#1a1a22] border-[#3a3a45]">
-            <View className="space-y-3">
-              <Text className="font-medium text-white">Your Question</Text>
-              <View className="bg-[#252530] p-3 rounded-lg">
-                <Text className="text-white">{decisionTree.topic}</Text>
+          <Card className="bg-background-card border-none shadow-lg overflow-hidden">
+            <LinearGradient
+              colors={['rgba(139, 92, 246, 0.1)', 'transparent']}
+              style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 6 }}
+            />
+            <View className="p-5 space-y-3">
+              <Text className="font-medium text-primary">Your Question</Text>
+              <View className="bg-background-input p-4 rounded-xl">
+                <Text className="text-text font-medium">{decisionTree.topic}</Text>
                 {decisionTree.context && (
-                  <Text className="text-[#9b9ba7] mt-2">{decisionTree.context}</Text>
+                  <Text className="text-muted mt-2">{decisionTree.context}</Text>
                 )}
               </View>
             </View>
           </Card>
           
-          <Card className="p-6 bg-[#1a1a22] border-[#3a3a45]">
-            <View className="space-y-8 items-center">
-              <View className="w-16 h-16 rounded-full bg-[#6e3abd] items-center justify-center">
-                <Ionicons name="checkmark" size={32} color="white" />
+          <Card className="bg-background-card border-none shadow-lg overflow-hidden">
+            <LinearGradient
+              colors={['rgba(139, 92, 246, 0.1)', 'transparent']}
+              style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 6 }}
+            />
+            <View className="p-5 space-y-8">
+              <View className="items-center">
+                <View className="w-20 h-20 rounded-full bg-primary/20 items-center justify-center mb-4">
+                  <View className="w-14 h-14 rounded-full bg-primary items-center justify-center">
+                    <Ionicons name="checkmark" size={32} color="white" />
+                  </View>
+                </View>
+                
+                <Text className="font-semibold text-primary text-lg mb-2">Decision Complete</Text>
+                <View className="w-16 h-1 bg-primary/30 rounded-full mb-6" />
               </View>
               
               <View className="space-y-2 w-full">
-                <Text className="font-medium text-white text-center text-xl">Decision</Text>
-                <Text className="text-white text-center text-lg">{finalDecision.decision}</Text>
+                <Text className="font-medium text-white bg-primary/80 px-3 py-1 rounded-md text-sm inline-block">RECOMMENDATION</Text>
+                <Text className="text-text text-xl font-medium leading-7 mt-2">{finalDecision.decision}</Text>
               </View>
               
-              <View className="w-full h-px bg-gray-700 my-2" />
+              <View className="w-full h-px bg-border opacity-30 my-2" />
               
               <View className="space-y-2 w-full">
-                <Text className="font-medium text-white">Reflection</Text>
-                <Text className="text-[#d8d8e0]">{finalDecision.reflection}</Text>
+                <Text className="font-medium text-white bg-primary/80 px-3 py-1 rounded-md text-sm inline-block">REFLECTION</Text>
+                <Text className="text-text leading-6 mt-2">{finalDecision.reflection}</Text>
               </View>
             </View>
           </Card>
           
-          <View className="space-y-4">
+          <View className="space-y-6 pt-4">
             <Button
-              className="w-full bg-[#6e3abd]"
-              onPress={() => {
-                // Navigate to the history page when done
-                router.push("/(app)/(protected)/history");
-              }}
+              className="w-full p-4 bg-primary rounded-xl shadow-lg shadow-primary/20"
+              onPress={() => router.push("/(app)/(protected)/history")}
             >
-              <Text className="text-white">Done</Text>
+              <Text className="text-white font-semibold text-base">Save & Finish</Text>
             </Button>
             
-            <Button
-              variant="outline"
-              className="w-full border-[#3a3a45]"
-              onPress={handleGoBack}
-            >
-              <Ionicons name="arrow-back" size={20} color="white" className="mr-2" />
-              <Text className="text-white">Back to Decision Process</Text>
-            </Button>
-            
-            <Button
-              variant="outline"
-              className="w-full border-[#3a3a45]"
-              onPress={handleNewDecision}
-            >
-              <Ionicons name="refresh" size={20} color="white" className="mr-2" />
-              <Text className="text-white">Start New Decision</Text>
-            </Button>
+            <View className="flex-row space-x-4">
+              <Button
+                variant="outline"
+                className="flex-1 p-4 border-border/30 rounded-xl bg-background-card"
+                onPress={handleGoBack}
+              >
+                <View className="flex-row items-center">
+                  <Ionicons name="arrow-back" size={20} color={theme.colors.text.DEFAULT} style={{ marginRight: 8 }} />
+                  <Text className="text-text">Back</Text>
+                </View>
+              </Button>
+              
+              <Button
+                variant="outline"
+                className="flex-1 p-4 border-border/30 rounded-xl bg-background-card"
+                onPress={handleNewDecision}
+              >
+                <View className="flex-row items-center">
+                  <Ionicons name="refresh" size={20} color={theme.colors.text.DEFAULT} style={{ marginRight: 8 }} />
+                  <Text className="text-text">New</Text>
+                </View>
+              </Button>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -312,159 +420,285 @@ export default function Decide() {
   }
 
   return (
-    <ScrollView className="flex-1 bg-[#0e0e12]">
-      <View className="p-6 space-y-6">
-        <View className="flex-row justify-between items-center">
-          <H1 className="text-2xl font-bold text-white">Decide</H1>
-          
-          {decisionTree ? (
-            <View className="flex-row">
-              <Button
-                variant="ghost"
-                size="icon"
-                onPress={handleNewDecision}
-              >
-                <Ionicons name="add-outline" size={24} color="white" />
-              </Button>
+    <ScrollView 
+      className="flex-1 bg-background" 
+      contentContainerStyle={{ paddingBottom: 100, paddingTop: isIOS ? 130 : 80 }}
+    >
+      <LinearGradient
+        colors={['rgba(139, 92, 246, 0.15)', 'transparent']}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 250 }}
+      />
+      
+      <View className="px-6 space-y-8 w-full max-w-lg mx-auto">
+        {!decisionTree ? (
+          <View className="items-center mb-4">
+            <H1 className="text-3xl font-bold text-text text-center">
+              New Decision
+            </H1>
+          </View>
+        ) : (
+          <View className="flex-row justify-between items-center">
+            <View>
+              <H1 className="text-2xl font-bold text-text">
+                Your Decision
+              </H1>
+              <Muted>
+                Consider your options
+              </Muted>
             </View>
-          ) : (
+            
             <Button
               variant="ghost"
               size="icon"
-              onPress={() => router.back()}
-              className="text-white"
+              className="rounded-full bg-primary/10"
+              onPress={handleNewDecision}
             >
-              <Text className="text-white">✕</Text>
+              <Ionicons name="add-outline" size={24} color={theme.colors.primary.DEFAULT} />
             </Button>
-          )}
-        </View>
+          </View>
+        )}
 
         {error && (
-          <Card className="p-4 bg-[#331111] border-[#662222] mb-4">
-            <Text className="text-[#ff9999]">{error}</Text>
+          <Card className="bg-destructive/10 border-none shadow-lg overflow-hidden">
+            <View className="p-4 flex-row items-center space-x-3">
+              <View className="w-8 h-8 rounded-full bg-destructive/20 items-center justify-center">
+                <Ionicons name="alert-circle" size={18} color={theme.colors.destructive.DEFAULT} />
+              </View>
+              <Text className="flex-1 text-destructive">{error}</Text>
+            </View>
           </Card>
         )}
 
         {!decisionTree ? (
-          <Card className="p-4 bg-[#1a1a22] border-[#3a3a45]">
-            <View className="space-y-6">
-              <View className="space-y-3">
-                <Text className="font-medium text-white">What decision do you need help with?</Text>
-                <TextInput
-                  className="border border-[#3a3a45] rounded-lg p-4 text-white bg-[#252530]"
-                  placeholder="e.g., Should I change careers?"
-                  placeholderTextColor="#6c6c7c"
-                  value={decision}
-                  onChangeText={setDecision}
-                  multiline
-                />
+          <Card className="bg-background-card border-none shadow-lg overflow-hidden">
+            <LinearGradient
+              colors={['rgba(139, 92, 246, 0.1)', 'transparent']}
+              style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 6 }}
+            />
+            <View className="p-6 space-y-8">
+              <View className="space-y-4">
+                <Text className="font-semibold text-white bg-primary/80 px-3 py-1 rounded-md text-sm inline-block">
+                  QUESTION
+                </Text>
+                <View className="border-2 border-primary/40 rounded-xl overflow-hidden">
+                  <TextInput
+                    className="p-4 text-text bg-background-input"
+                    placeholder="e.g., Should I change careers?"
+                    placeholderTextColor="rgba(148, 163, 184, 0.8)"
+                    value={decision}
+                    onChangeText={setDecision}
+                    multiline
+                    style={{ fontSize: 16, minHeight: 60 }}
+                  />
+                </View>
               </View>
 
-              <View className="items-center space-y-3">
+              <View className="space-y-4 mt-6">
+                <Text className="font-semibold text-white bg-primary/80 px-3 py-1 rounded-md text-sm inline-block">
+                  CONTEXT (OPTIONAL)
+                </Text>
+                
+                <View className="border-2 border-primary/40 rounded-xl overflow-hidden">
+                  <TextInput
+                    className="p-4 text-text bg-background-input"
+                    placeholder="Add any relevant details that might help..."
+                    placeholderTextColor="rgba(148, 163, 184, 0.8)"
+                    value={context}
+                    onChangeText={setContext}
+                    multiline
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                    style={{ fontSize: 16, minHeight: 100 }}
+                  />
+                </View>
+                
+                {attachedFile && (
+                  <View className="bg-primary/20 p-4 rounded-xl flex-row items-center justify-between mt-3">
+                    <View className="flex-row items-center flex-1">
+                      <View className="w-8 h-8 rounded-full bg-primary/30 items-center justify-center mr-3">
+                        <Ionicons name="document-text" size={16} color={theme.colors.primary.DEFAULT} />
+                      </View>
+                      <View>
+                        <Text className="text-text font-medium" numberOfLines={1}>File attached</Text>
+                        <Text className="text-muted text-xs" numberOfLines={1}>{attachedFile.name}</Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity 
+                      onPress={() => setAttachedFile(null)}
+                      className="w-8 h-8 rounded-full bg-primary/10 items-center justify-center"
+                    >
+                      <Ionicons name="close" size={18} color={theme.colors.primary.DEFAULT} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+
                 <TouchableOpacity 
-                  className="w-16 h-16 rounded-full bg-[#6e3abd] items-center justify-center"
-                  onPress={() => {/* Handle voice input */}}
+                  className="flex-row items-center bg-primary/30 rounded-xl p-2.5 mt-2"
+                  onPress={handlePickDocument}
+                  activeOpacity={0.7}
                 >
-                  <Ionicons name="mic" size={28} color="white" />
+                  <View className="w-7 h-7 rounded-full bg-primary/20 items-center justify-center mr-2">
+                    <Ionicons name="document-attach" size={14} color={theme.colors.primary.DEFAULT} />
+                  </View>
+                  <Text className="text-text font-medium text-sm">Upload a file</Text>
                 </TouchableOpacity>
-                <Text className="text-[#9b9ba7]">Speak your question</Text>
               </View>
 
-              <View className="space-y-3">
-                <Text className="font-medium text-white">Context (Optional)</Text>
-                <TextInput
-                  className="border border-[#3a3a45] rounded-lg p-4 text-white bg-[#252530]"
-                  placeholder="Add any relevant details that might help..."
-                  placeholderTextColor="#6c6c7c"
-                  value={context}
-                  onChangeText={setContext}
-                  multiline
-                  numberOfLines={4}
-                />
+              <View className="pt-8">
+                <TouchableOpacity
+                  className={`w-full py-5 rounded-xl shadow-lg ${isProcessing ? 'bg-primary/70' : 'bg-primary'} shadow-primary/30 overflow-hidden`}
+                  onPress={handleStartDecision}
+                  disabled={!decision.trim() || isProcessing}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={['rgba(255, 255, 255, 0.15)', 'transparent']}
+                    style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 30 }}
+                  />
+                  {isProcessing ? (
+                    <View className="flex-row items-center justify-center space-x-3">
+                      <ActivityIndicator size="small" color="white" />
+                      <Text className="text-white font-semibold">Processing...</Text>
+                    </View>
+                  ) : (
+                    <Text className="text-white font-semibold text-base text-center">Start Decision Process</Text>
+                  )}
+                </TouchableOpacity>
               </View>
-
-              <Button
-                className="w-full bg-[#6e3abd]"
-                onPress={handleStartDecision}
-                disabled={!decision.trim() || isProcessing}
-              >
-                <Text className="text-white">{isProcessing ? "Processing..." : "Start Decision Process"}</Text>
-              </Button>
             </View>
           </Card>
         ) : (
-          <View className="space-y-4">
-            <Card className="p-4 bg-[#1a1a22] border-[#3a3a45]">
-              <View className="space-y-3">
-                <Text className="font-medium text-white">Your Decision</Text>
-                <View className="bg-[#252530] p-3 rounded-lg">
-                  <Text className="text-white">{decisionTree.topic}</Text>
-                  {decisionTree.context && (
-                    <Text className="text-[#9b9ba7] mt-2">{decisionTree.context}</Text>
-                  )}
-                </View>
+          <View className="space-y-6">
+            <Card className="bg-background-card border-none shadow-lg overflow-hidden">
+              <LinearGradient
+                colors={['rgba(139, 92, 246, 0.1)', 'transparent']}
+                style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 6 }}
+              />
+              <View className="p-5">
+                <Text className="font-semibold text-white bg-primary/80 px-3 py-1 rounded-md text-sm inline-block mb-3">
+                  YOUR QUESTION
+                </Text>
+                <Text className="text-text text-lg font-medium">{decisionTree.topic}</Text>
+                {decisionTree.context && (
+                  <Text className="text-muted mt-2">{decisionTree.context}</Text>
+                )}
               </View>
             </Card>
             
             {isProcessing || isGeneratingFinal ? (
-              <Card className="p-8 bg-[#1a1a22] border-[#3a3a45] items-center">
-                <ActivityIndicator size="large" color="#6e3abd" />
-                <Text className="text-white mt-4">
-                  {isGeneratingFinal ? "Finalizing your decision..." : "Thinking..."}
-                </Text>
+              <Card className="bg-background-card border-none shadow-lg overflow-hidden">
+                <View className="p-8 items-center justify-center">
+                  <View className="w-16 h-16 rounded-full bg-primary/20 items-center justify-center mb-4">
+                    <ActivityIndicator size="large" color={theme.colors.primary.DEFAULT} />
+                  </View>
+                  <Text className="text-text text-center text-lg font-medium mb-1">
+                    {isGeneratingFinal ? "Finalizing Decision" : "Processing"}
+                  </Text>
+                  <Text className="text-muted text-center">
+                    {isGeneratingFinal 
+                      ? "Analyzing your choices and crafting recommendations..." 
+                      : "Thinking through the next steps..."}
+                  </Text>
+                </View>
               </Card>
             ) : currentNode ? (
-              <Card className="p-4 bg-[#1a1a22] border-[#3a3a45]">
-                <View className="space-y-4">
-                  <View className="space-y-2">
-                    <Text className="font-medium text-white text-lg">{currentNode.title}</Text>
-                    <Text className="text-[#d8d8e0]">{currentNode.content}</Text>
+              <Card className="bg-background-card border-none shadow-lg overflow-hidden">
+                <LinearGradient
+                  colors={['rgba(139, 92, 246, 0.1)', 'transparent']}
+                  style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 6 }}
+                />
+                <View className="p-5 space-y-6">
+                  <View className="space-y-3">
+                    <Text className="font-semibold text-white bg-primary/80 px-3 py-1 rounded-md text-sm inline-block">
+                      CONSIDERATION
+                    </Text>
+                    <Text className="text-text text-xl font-medium mt-2">{currentNode.title}</Text>
+                    <Text className="text-text leading-6">{currentNode.content}</Text>
                   </View>
                   
-                  <View className="space-y-2 mt-4">
-                    <Text className="font-medium text-white">Options:</Text>
-                    {currentNode.options.map((option) => (
-                      <Button
-                        key={option.id}
-                        variant="outline"
-                        className="w-full border-[#3a3a45] mb-2"
-                        onPress={() => handleOptionSelect(option.id)}
-                      >
-                        <Text className="text-white">{option.text}</Text>
-                      </Button>
-                    ))}
+                  <View className="space-y-3 mt-3">
+                    <Text className="font-semibold text-white bg-primary/80 px-3 py-1 rounded-md text-sm inline-block">
+                      YOUR OPTIONS
+                    </Text>
+                    <View className="space-y-3 mt-2">
+                      {currentNode.options.map((option, index) => (
+                        <TouchableOpacity
+                          key={option.id}
+                          className="w-full border-2 border-primary/30 rounded-xl p-4 bg-background-input active:opacity-80"
+                          onPress={() => handleOptionSelect(option.id)}
+                          activeOpacity={0.8}
+                        >
+                          <View className="flex-row items-center">
+                            <View className="w-8 h-8 rounded-full bg-primary/20 items-center justify-center mr-3">
+                              <Text className="text-primary font-semibold">{index + 1}</Text>
+                            </View>
+                            <Text className="flex-1 text-text font-medium">{option.text}</Text>
+                            <Ionicons name="chevron-forward" size={22} color={theme.colors.text.DEFAULT} />
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
                   </View>
                   
-                  <View className="flex-row justify-between mt-4">
+                  <View className="flex-row space-x-4 mt-4 pt-3 border-t border-border/20">
                     <Button
                       variant="outline"
-                      className="flex-1 mr-2 border-[#3a3a45]"
+                      className={`flex-1 py-4 ${!currentNode.parentId ? 'opacity-50' : ''} rounded-xl`}
                       onPress={handleGoBack}
                       disabled={!currentNode.parentId}
                     >
-                      <Ionicons name="arrow-back" size={20} color={
-                        currentNode.parentId ? "white" : "#6c6c7c"
-                      } />
-                      <Text className={currentNode.parentId ? "text-white" : "text-[#6c6c7c]"}>Back</Text>
+                      <View className="flex-row items-center justify-center">
+                        <Ionicons 
+                          name="arrow-back" 
+                          size={20} 
+                          color={currentNode.parentId ? theme.colors.text.DEFAULT : theme.colors.text.muted} 
+                          style={{ marginRight: 8 }}
+                        />
+                        <Text className={currentNode.parentId ? "text-text" : "text-muted"}>
+                          Back
+                        </Text>
+                      </View>
                     </Button>
                     
                     <Button
-                      variant="outline"
-                      className="flex-1 ml-2 border-[#3a3a45]"
+                      className="flex-1 py-4 bg-primary/30 rounded-xl"
                       onPress={handleConcludeNow}
                     >
-                      <Ionicons name="checkmark-done" size={20} color="white" />
-                      <Text className="text-white">Conclude</Text>
+                      <View className="flex-row items-center justify-center">
+                        <Ionicons name="checkmark-done" size={20} color={theme.colors.text.DEFAULT} style={{ marginRight: 8 }} />
+                        <Text className="text-text font-medium">Conclude</Text>
+                      </View>
                     </Button>
                   </View>
                 </View>
               </Card>
             ) : (
-              <Card className="p-4 bg-[#1a1a22] border-[#3a3a45]">
-                <Text className="text-white text-center">Something went wrong. Please try again.</Text>
+              <Card className="p-5 bg-background-card border-none shadow-lg">
+                <View className="items-center p-4">
+                  <Ionicons name="alert-circle-outline" size={48} color={theme.colors.text.muted} />
+                  <Text className="text-text text-center mt-4">
+                    Something went wrong with your decision tree.
+                  </Text>
+                  <Button
+                    className="mt-6 bg-primary/30 px-5 py-3 rounded-xl"
+                    onPress={handleNewDecision}
+                  >
+                    <Text className="text-text font-medium">Start Over</Text>
+                  </Button>
+                </View>
               </Card>
             )}
           </View>
+        )}
+        
+        {!decisionTree && (
+          <TouchableOpacity 
+            className="flex-row items-center justify-center mx-auto bg-primary/20 rounded-xl p-3 px-4 mb-12 mt-4"
+            activeOpacity={0.7}
+          >
+            <Ionicons name="mic" size={18} color={theme.colors.text.DEFAULT} style={{ marginRight: 6 }} />
+            <Text className="text-text">Tap to speak your question</Text>
+          </TouchableOpacity>
         )}
       </View>
     </ScrollView>
