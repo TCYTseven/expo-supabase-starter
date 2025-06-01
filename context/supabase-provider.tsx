@@ -134,9 +134,34 @@ export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
 	};
 
 	const signOut = async () => {
-		const { error } = await supabase.auth.signOut();
-		if (error) {
+		try {
+			const { error } = await supabase.auth.signOut();
+			if (error) {
+				throw error;
+			}
+		} catch (error: any) {
+			console.error('Error signing out:', error);
+			// Even if signOut fails, clear local state
+			setSession(null);
+			setUser(null);
 			throw error;
+		}
+	};
+
+	// Function to refresh session manually
+	const refreshSession = async () => {
+		try {
+			const { data: { session }, error } = await supabase.auth.refreshSession();
+			if (error) {
+				console.error('Error refreshing session:', error);
+				return false;
+			}
+			setSession(session);
+			setUser(session ? session.user : null);
+			return true;
+		} catch (error) {
+			console.error('Exception refreshing session:', error);
+			return false;
 		}
 	};
 
@@ -154,14 +179,29 @@ export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
 				
 				setInitialized(true);
 
-				const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-					setSession(session);
-					setUser(session ? session.user : null);
+				const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+					console.log('Auth state change:', event, session?.user?.id);
+					
+					if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+						setSession(session);
+						setUser(session ? session.user : null);
+					} else if (event === 'SIGNED_IN') {
+						setSession(session);
+						setUser(session ? session.user : null);
+						if (session?.user) {
+							await ensureUserProfile(session.user.id);
+						}
+					} else {
+						setSession(session);
+						setUser(session ? session.user : null);
+					}
 				});
 
-				await new Promise(resolve => setTimeout(resolve, 100));
+				return () => {
+					subscription.unsubscribe();
+				};
 			} catch (e) {
-				console.warn(e);
+				console.warn('Error in auth preparation:', e);
 			} finally {
 				setAppIsReady(true);
 			}

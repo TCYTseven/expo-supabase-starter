@@ -335,7 +335,19 @@ export function useUserProfile() {
   // Update user metadata (full_name, username)
   const updateUserMetadata = async (metadata: { full_name?: string; username?: string }) => {
     try {
-      if (!user) return null;
+      if (!user) {
+        throw new Error('No user found');
+      }
+
+      if (!session) {
+        throw new Error('No active session found');
+      }
+
+      // Verify the session is still valid
+      const { data: { user: currentUser }, error: sessionError } = await supabase.auth.getUser();
+      if (sessionError || !currentUser) {
+        throw new Error('Session expired. Please sign in again.');
+      }
 
       const { data, error } = await supabase.auth.updateUser({
         data: metadata
@@ -355,7 +367,19 @@ export function useUserProfile() {
   // Update user password
   const updatePassword = async (newPassword: string) => {
     try {
-      if (!user) return null;
+      if (!user) {
+        throw new Error('No user found');
+      }
+
+      if (!session) {
+        throw new Error('No active session found');
+      }
+
+      // Verify the session is still valid
+      const { data: { user: currentUser }, error: sessionError } = await supabase.auth.getUser();
+      if (sessionError || !currentUser) {
+        throw new Error('Session expired. Please sign in again.');
+      }
 
       const { data, error } = await supabase.auth.updateUser({
         password: newPassword
