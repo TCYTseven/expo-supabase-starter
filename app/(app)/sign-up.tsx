@@ -25,25 +25,71 @@ const formSchema = z
 			.string()
 			.min(8, "Please enter at least 8 characters.")
 			.max(64, "Please enter fewer than 64 characters.")
-			.regex(
-				/^(?=.*[a-z])/,
-				"Your password must have at least one lowercase letter.",
-			)
-			.regex(
-				/^(?=.*[A-Z])/,
-				"Your password must have at least one uppercase letter.",
-			)
-			.regex(/^(?=.*[0-9])/, "Your password must have at least one number.")
-			.regex(
-				/^(?=.*[!@#$%^&*])/,
-				"Your password must have at least one special character.",
-			),
+			.regex(/^(?=.*[0-9])/, "Your password must have at least one number."),
 		confirmPassword: z.string().min(8, "Please enter at least 8 characters."),
 	})
 	.refine((data) => data.password === data.confirmPassword, {
 		message: "Your passwords do not match.",
 		path: ["confirmPassword"],
 	});
+
+// Password Requirements Tooltip Component
+function PasswordRequirementsTooltip({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+	const requirements = [
+		{
+			text: "At least 8 characters",
+			icon: "text-outline" as const,
+		},
+		{
+			text: "At least one number (0-9)",
+			icon: "calculator-outline" as const,
+		},
+	];
+
+	if (!visible) return null;
+
+	return (
+		<>
+			{/* Backdrop */}
+			<TouchableOpacity 
+				className="absolute inset-0 z-40" 
+				onPress={onClose}
+				activeOpacity={1}
+			/>
+			{/* Tooltip */}
+			<Animated.View
+				entering={FadeIn.duration(150)}
+				exiting={FadeOut.duration(150)}
+				className="absolute right-4 top-12 z-50 bg-background border border-border/50 rounded-xl p-4 shadow-lg min-w-64"
+				style={{
+					shadowColor: '#000',
+					shadowOffset: { width: 0, height: 4 },
+					shadowOpacity: 0.15,
+					shadowRadius: 12,
+					elevation: 8,
+				}}
+			>
+				<Text className="text-sm font-medium text-foreground mb-3">Password Requirements:</Text>
+				<View className="space-y-2">
+					{requirements.map((req, index) => (
+						<View key={index} className="flex-row items-center space-x-3">
+							<Ionicons 
+								name={req.icon} 
+								size={16} 
+								color={theme.colors.text.muted}
+							/>
+							<Text className="text-sm text-muted-foreground flex-1">
+								{req.text}
+							</Text>
+						</View>
+					))}
+				</View>
+				{/* Small arrow pointing to the info icon */}
+				<View className="absolute -top-1 right-4 w-2 h-2 bg-background border-l border-t border-border/50 transform rotate-45" />
+			</Animated.View>
+		</>
+	);
+}
 
 // Error Popup Component
 function ErrorPopup({ message, onClose }: { message: string; onClose: () => void }) {
@@ -82,6 +128,7 @@ export default function SignUp() {
 	const [showSuccess, setShowSuccess] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [showError, setShowError] = useState(false);
+	const [showPasswordRequirements, setShowPasswordRequirements] = useState(false);
 	const { width, height } = Dimensions.get('window');
 	const [keyboardVisible, setKeyboardVisible] = useState(false);
 
@@ -239,22 +286,47 @@ export default function SignUp() {
 									/>
 								)}
 							/>
-							<FormField
-								control={form.control}
-								name="password"
-								render={({ field }) => (
-									<FormInput
-										label="Password"
-										placeholder="Create a secure password"
-										autoCapitalize="none"
-										autoCorrect={false}
-										secureTextEntry
-										labelIcon={<Ionicons name="lock-closed-outline" size={20} color={theme.colors.text.muted} />}
-										className="rounded-xl bg-muted/30 border-0 px-4"
-										{...field}
-									/>
-								)}
-							/>
+							<View>
+								<FormField
+									control={form.control}
+									name="password"
+									render={({ field }) => (
+										<View>
+											{/* Password Label with Info Icon */}
+											<View className="flex-row items-center justify-between mb-2">
+												<View className="flex-row items-center">
+													<Ionicons name="lock-closed-outline" size={20} color={theme.colors.text.muted} />
+													<Text className="ml-2 text-sm font-medium text-foreground">Password</Text>
+												</View>
+												<TouchableOpacity
+													onPress={() => setShowPasswordRequirements(!showPasswordRequirements)}
+													className="p-1"
+													hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+												>
+													<Ionicons 
+														name="information-circle-outline" 
+														size={20} 
+														color={theme.colors.text.muted} 
+													/>
+												</TouchableOpacity>
+											</View>
+											<FormInput
+												placeholder="Create a secure password"
+												autoCapitalize="none"
+												autoCorrect={false}
+												secureTextEntry
+												className="rounded-xl bg-muted/30 border-0 px-4"
+												{...field}
+											/>
+										</View>
+									)}
+								/>
+								{/* Password Requirements Tooltip */}
+								<PasswordRequirementsTooltip 
+									visible={showPasswordRequirements} 
+									onClose={() => setShowPasswordRequirements(false)} 
+								/>
+							</View>
 							<FormField
 								control={form.control}
 								name="confirmPassword"

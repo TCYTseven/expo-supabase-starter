@@ -256,7 +256,7 @@ export default function Settings() {
 
 					<TouchableOpacity 
 						className="flex-row items-center justify-between py-3"
-						onPress={() => {/* Handle account settings */}}
+						onPress={() => router.push("/(app)/(protected)/account-settings")}
 					>
 						<View className="flex-row items-center">
 							<View className="w-10 h-10 bg-primary/10 rounded-full items-center justify-center mr-4">

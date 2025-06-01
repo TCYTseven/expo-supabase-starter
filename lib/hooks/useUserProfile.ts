@@ -11,6 +11,7 @@ const generateId = () => {
 
 export type UserProfile = {
   id: string;
+  email?: string;
   personality_type: string;
   advisor: string;
   custom_advisors: string; // This will now store an array of advisors
@@ -66,6 +67,7 @@ export function useUserProfile() {
                 .from('user_profiles')
                 .insert([{ 
                   id: user.id,
+                  email: user.email,
                   personality_type: "NONE",
                   advisor: "Assistant",
                   custom_advisors: JSON.stringify([]) // Initialize with empty array
@@ -115,6 +117,7 @@ export function useUserProfile() {
         console.warn('Creating fallback profile due to network error');
         setProfile({
           id: user.id,
+          email: user.email,
           personality_type: "NONE",
           advisor: "Assistant",
           custom_advisors: JSON.stringify([]),
@@ -194,7 +197,7 @@ export function useUserProfile() {
           if (profile.custom_advisors === "Not Set") {
             currentAdvisors = [];
           } else if (typeof profile.custom_advisors === 'string') {
-            const parsed = JSON.parse(profile.custom_advisors);
+            const parsed: any = JSON.parse(profile.custom_advisors);
             // Handle the case where it might not be an array yet (legacy data)
             if (Array.isArray(parsed)) {
               currentAdvisors = parsed;
@@ -202,8 +205,8 @@ export function useUserProfile() {
               // If it's the old format with a single advisor, create an array with it
               currentAdvisors = [{
                 id: generateId(),
-                raw: parsed.raw || parsed,
-                prompt: parsed.prompt || getPromptFromLegacyData(parsed),
+                raw: (parsed as any).raw || parsed,
+                prompt: (parsed as any).prompt || getPromptFromLegacyData(parsed),
                 created_at: new Date().toISOString()
               }];
             }
@@ -267,15 +270,15 @@ export function useUserProfile() {
 
     try {
       if (typeof profile.custom_advisors === 'string') {
-        const parsed = JSON.parse(profile.custom_advisors);
+        const parsed: any = JSON.parse(profile.custom_advisors);
         if (Array.isArray(parsed)) {
           return parsed;
         } else {
           // Legacy format with single advisor
           return [{
             id: 'legacy',
-            raw: parsed.raw || parsed,
-            prompt: parsed.prompt || getPromptFromLegacyData(parsed),
+            raw: (parsed as any).raw || parsed,
+            prompt: (parsed as any).prompt || getPromptFromLegacyData(parsed),
             created_at: profile.updated_at || new Date().toISOString()
           }];
         }
@@ -329,6 +332,46 @@ export function useUserProfile() {
     }
   };
 
+  // Update user metadata (full_name, username)
+  const updateUserMetadata = async (metadata: { full_name?: string; username?: string }) => {
+    try {
+      if (!user) return null;
+
+      const { data, error } = await supabase.auth.updateUser({
+        data: metadata
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    } catch (err: any) {
+      console.error('Error updating user metadata:', err);
+      throw err;
+    }
+  };
+
+  // Update user password
+  const updatePassword = async (newPassword: string) => {
+    try {
+      if (!user) return null;
+
+      const { data, error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    } catch (err: any) {
+      console.error('Error updating password:', err);
+      throw err;
+    }
+  };
+
   // Fetch profile when user or session changes
   useEffect(() => {
     fetchProfile();
@@ -343,6 +386,8 @@ export function useUserProfile() {
     updateAdvisor,
     addCustomAdvisor,
     getCustomAdvisors,
-    deleteCustomAdvisor
+    deleteCustomAdvisor,
+    updateUserMetadata,
+    updatePassword
   };
 } 

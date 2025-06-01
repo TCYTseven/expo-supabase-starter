@@ -61,6 +61,7 @@ export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
 					.insert([
 						{ 
 							id: data.user.id,
+							email: data.user.email,
 							personality_type: "NONE",
 							advisor: "Assistant",
 							custom_advisors: "Not Set"
@@ -90,11 +91,15 @@ export const SupabaseProvider = ({ children }: SupabaseProviderProps) => {
 			
 			// If profile doesn't exist, create it
 			if (!existingProfile) {
+				// Get user data to include email
+				const { data: { user } } = await supabase.auth.getUser();
+				
 				const { error: profileError } = await supabase
 					.from('user_profiles')
 					.insert([
 						{ 
 							id: userId,
+							email: user?.email,
 							personality_type: "NONE",
 							advisor: "Assistant",
 							custom_advisors: "Not Set"
